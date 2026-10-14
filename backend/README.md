@@ -1,5 +1,9 @@
 # Swift backend
 
+[Watch the rider and driver demo](https://github.com/freaknu/swift_app/issues/1) · [Live API docs](https://swift-app.duckdns.org/swagger-ui.html)
+
+[![SwiftApp demo](../docs/demo/swift-app-demo-poster.png)](https://github.com/freaknu/swift_app/issues/1)
+
 Java 21 / Spring Boot services for Swift. Spring Cloud Gateway provides public routing, JWT checks, rate limiting and Swagger. Eureka discovers services, PostgreSQL stores data, Kafka carries domain events, Redis supports matching and real-time delivery, and STOMP delivers ride, payment, location and chat updates.
 
 ## Services

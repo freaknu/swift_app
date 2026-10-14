@@ -1,5 +1,9 @@
 # Swift Flutter application
 
+[Watch the rider and driver demo](https://github.com/freaknu/swift_app/issues/1) · [Live API docs](https://swift-app.duckdns.org/swagger-ui.html)
+
+[![SwiftApp demo](../docs/demo/swift-app-demo-poster.png)](https://github.com/freaknu/swift_app/issues/1)
+
 Flutter client for Swift's rider and driver flows: vehicle selection, live matching, maps and location, trip controls, chat, Razorpay checkout, profiles, and light/dark themes. Branding, SVG icons and vehicle photographs are bundled with the app.
 
 ## Quick start

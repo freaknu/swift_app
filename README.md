@@ -1,5 +1,9 @@
 # Swift
 
+[Watch the rider and driver demo](https://github.com/freaknu/swift_app/issues/1) · [Live API docs](https://swift-app.duckdns.org/swagger-ui.html)
+
+[![SwiftApp demo](docs/demo/swift-app-demo-poster.png)](https://github.com/freaknu/swift_app/issues/1)
+
 Swift is a ride booking app with separate rider and driver experiences, a Flutter client and a Java microservice backend. Riders choose vehicles, request rides, follow matching and trip updates, chat and pay through Razorpay. Drivers manage availability, receive offers and complete trips.
 
 Both applications live in this repository. Provider credentials, signing keys, personal documents, generated builds and runtime data are excluded.
