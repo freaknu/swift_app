@@ -1,0 +1,3 @@
+// Copy to Maps.xcconfig and use your iOS-restricted Maps SDK API key.
+MAPS_API_KEY =
+

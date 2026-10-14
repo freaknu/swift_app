@@ -1,0 +1,8 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
+#include? "Maps.xcconfig"
+#include "Generated.xcconfig"
+
+// Flutter 3.41 verifies simulator slices with one lipo call; Xcode 27 accepts
+// one architecture per verification. Use the host simulator architecture while
+// keeping the device build's standard architectures.
+ARCHS[sdk=iphonesimulator*] = $(NATIVE_ARCH)

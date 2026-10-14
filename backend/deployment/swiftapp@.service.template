@@ -1,0 +1,32 @@
+[Unit]
+Description=SwiftApp %i
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=@@USER@@
+Group=@@USER@@
+WorkingDirectory=@@ROOT@@
+EnvironmentFile=@@ROOT@@/deployment/runtime/service.env
+ExecStart=/usr/bin/java -Xms32m -Xmx256m -XX:MaxMetaspaceSize=192m -XX:+ExitOnOutOfMemoryError -jar @@ROOT@@/deployment/current/%i.jar
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=45
+KillSignal=SIGTERM
+SuccessExitStatus=143
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=@@ROOT@@/deployment/runtime /var/lib/swiftapp
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=swiftapp-%i
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,65 @@
+services:
+  user-url: ${USER_SERVICE_URL:http://localhost:8082}
+  driver-url: ${DRIVER_SERVICE_URL:http://localhost:8096}
+
+server:
+  address: ${SERVICE_BIND_ADDRESS:127.0.0.1}
+  port: 8088
+spring:
+  web:
+    resources:
+      add-mappings: false
+  application:
+    name: NOTIFICATION-SERVICE
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/notificationservice_db}
+    username: ${DB_USERNAME:swiftapp}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: true
+
+    listener:
+      ack-mode: manual
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+notifications:
+  push:
+    enabled: ${PUSH_ENABLED:false}
+    # Local compatibility with the configured file; deployed instances should
+    # use an external file: URL or an empty value for Application Default Credentials.
+    credentials: ${FIREBASE_CREDENTIALS:}

@@ -1,0 +1,44 @@
+server:
+  address: ${SERVICE_BIND_ADDRESS:127.0.0.1}
+  port: 9005
+spring:
+  application:
+    name: MATCHING-SERVICE
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/matchingservice_db}
+    username: ${DB_USERNAME:swiftapp}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+matching:
+  offer-ttl-seconds: 15
+  lock-ttl-seconds: 20
+  max-attempts: 4
+  radii-km: [5.0, 7.0, 10.0, 15.0]
+  stale-location-threshold-seconds: 60
+  timeout-scan-interval-ms: 2000
+  candidate-limit: 25
+  strategy: NEAREST

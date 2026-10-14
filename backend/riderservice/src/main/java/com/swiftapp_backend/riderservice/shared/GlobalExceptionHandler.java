@@ -1,0 +1,161 @@
+package com.swiftapp_backend.riderservice.shared;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.ServletWebRequest;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ApiResponseFormat<Object>> handleApiException(
+            ApiException ex, HttpServletRequest request) {
+        if (ex.getStatus().is5xxServerError()) {
+            log.error("API exception at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        } else {
+            log.warn("API exception at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        }
+        return buildResponse(ex.getStatus(), ex.getMessage(), request.getRequestURI(), null);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponseFormat<Object>> handleConstraintViolation(
+            ConstraintViolationException ex, HttpServletRequest request) {
+        log.warn("Constraint violation at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        Map<String, String> errors = new LinkedHashMap<>();
+        ex.getConstraintViolations().forEach(violation ->
+                errors.put(violation.getPropertyPath().toString(), violation.getMessage()));
+        return buildResponse(HttpStatus.BAD_REQUEST, "Validation failed",
+                request.getRequestURI(), errors);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponseFormat<Object>> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        log.warn("Type mismatch at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        return buildResponse(HttpStatus.BAD_REQUEST,
+                "Invalid value for parameter '" + ex.getName() + "'",
+                request.getRequestURI(), null);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponseFormat<Object>> handleIllegalArgument(
+            IllegalArgumentException ex, HttpServletRequest request) {
+        log.warn("Illegal argument at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request.getRequestURI(), null);
+    }
+
+    @ExceptionHandler({DataIntegrityViolationException.class, ObjectOptimisticLockingFailureException.class})
+    public ResponseEntity<ApiResponseFormat<Object>> handleDataConflict(
+            RuntimeException ex, HttpServletRequest request) {
+        log.warn("Data conflict at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        return buildResponse(HttpStatus.CONFLICT,
+                "The request conflicts with the current ride state",
+                request.getRequestURI(), null);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponseFormat<Object>> handleUnexpectedException(
+            Exception ex, HttpServletRequest request) {
+        log.error("Unexpected exception at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error",
+                request.getRequestURI(), null);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        log.warn("Validation failed at {}: {}", endpoint(request), ex.getMessage(), ex);
+        Map<String, String> errors = new LinkedHashMap<>();
+        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+            errors.put(error.getField(), error.getDefaultMessage());
+        }
+        return validationResponse("Validation failed", errors, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        log.warn("Malformed JSON request at {}: {}", endpoint(request), ex.getMessage(), ex);
+        return validationResponse("Malformed or invalid JSON request", null, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException ex, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        log.warn("Missing request parameter at {}: {}", endpoint(request), ex.getMessage(), ex);
+        return validationResponse("Missing required parameter '" + ex.getParameterName() + "'",
+                null, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpRequestMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        log.warn("Method not supported at {}: {}", endpoint(request), ex.getMessage(), ex);
+        return errorResponse(HttpStatus.METHOD_NOT_ALLOWED, "HTTP method not supported", null, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleNoHandlerFoundException(
+            NoHandlerFoundException ex, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        log.warn("No handler found at {}: {}", endpoint(request), ex.getMessage(), ex);
+        return errorResponse(HttpStatus.NOT_FOUND, "Endpoint not found", null, request);
+    }
+
+    private String endpoint(WebRequest request) {
+        if (request instanceof ServletWebRequest servletRequest) {
+            return servletRequest.getRequest().getRequestURI();
+        }
+        return null;
+    }
+
+    private ResponseEntity<Object> validationResponse(String message, Object errors, WebRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, message, errors, request);
+    }
+
+    private ResponseEntity<Object> errorResponse(
+            HttpStatus status, String message, Object errors, WebRequest request) {
+        String endpoint = request instanceof ServletWebRequest servletRequest
+                ? servletRequest.getRequest().getRequestURI() : null;
+        return ResponseEntity.status(status).body(response(status, message, endpoint, errors));
+    }
+
+    private ResponseEntity<ApiResponseFormat<Object>> buildResponse(
+            HttpStatus status, String message, String endpoint, Object errors) {
+        return ResponseEntity.status(status).body(response(status, message, endpoint, errors));
+    }
+
+    private ApiResponseFormat<Object> response(
+            HttpStatus status, String message, String endpoint, Object errors) {
+        return ApiResponseFormat.builder()
+                .success(false).statusCode(status.value()).message(message)
+                .endpoint(endpoint).errors(errors).build();
+    }
+}

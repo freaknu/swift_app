@@ -1,0 +1,534 @@
+server:
+  port: 8080
+  # Nginx terminates HTTPS; Springdoc must retain the external scheme/host.
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          trusted-proxies: '${GATEWAY_TRUSTED_PROXIES:127\.0\.0\.1|::1|0:0:0:0:0:0:0:1}'
+
+          default-filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+
+          routes:
+
+            - id: payment-service
+              uri: lb://PAYMENT-SERVICE
+              predicates:
+                - Path=/api/v1/payments/**
+
+            - id: payment-service-openapi
+              uri: lb://PAYMENT-SERVICE
+              predicates:
+                - Path=/payment/v3/api-docs
+              filters:
+                - RewritePath=/payment/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+            - id: notification-service
+              uri: lb://NOTIFICATION-SERVICE
+              predicates:
+                - Path=/api/v1/notifications/**
+
+            - id: notification-service-openapi
+              uri: lb://NOTIFICATION-SERVICE
+              predicates:
+                - Path=/notification/v3/api-docs
+              filters:
+                - RewritePath=/notification/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+            # =========================================================
+            # CHAT SERVICE
+            # =========================================================
+
+            - id: chat-service
+              uri: lb://CHAT-SERVICE
+              predicates:
+                - Path=/api/v1/chat/**
+
+            - id: chat-service-openapi
+              uri: lb://CHAT-SERVICE
+              predicates:
+                - Path=/chat/v3/api-docs
+              filters:
+                - RewritePath=/chat/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+            # =========================================================
+            # AUTH SERVICE
+            # =========================================================
+
+            - id: auth-service
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/api/v1/auth/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: authServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/auth
+
+            # AUTH OPENAPI
+            - id: auth-service-openapi
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/auth/v3/api-docs
+              filters:
+                - RewritePath=/auth/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+
+            # =========================================================
+            # RIDER SERVICE
+            # =========================================================
+
+            # RIDE
+            - id: rider-service-ride
+              uri: lb://RIDER-SERVICE
+              predicates:
+                - Path=/api/v1/ride/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: riderServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/rider
+
+            # FARE
+            - id: rider-service-fare
+              uri: lb://RIDER-SERVICE
+              predicates:
+                - Path=/api/v1/fare/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: riderServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/rider
+
+            # RIDETYPE
+            - id: rider-service-ridetype
+              uri: lb://RIDER-SERVICE
+              predicates:
+                - Path=/api/v1/ridetype/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: riderServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/rider
+
+            # OFFER
+            - id: rider-service-offer
+              uri: lb://RIDER-SERVICE
+              predicates:
+                - Path=/api/v1/offer/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: riderServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/rider
+
+            # RIDER OPENAPI
+            - id: rider-service-openapi
+              uri: lb://RIDER-SERVICE
+              predicates:
+                - Path=/rider/v3/api-docs
+              filters:
+                - RewritePath=/rider/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+
+            # =========================================================
+            # USER SERVICE
+            # =========================================================
+
+            - id: user-service
+              uri: lb://USER-SERVICE
+              predicates:
+                - Path=/api/v1/user/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: userServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/user
+
+            # USER OPENAPI
+            - id: user-service-openapi
+              uri: lb://USER-SERVICE
+              predicates:
+                - Path=/user/v3/api-docs
+              filters:
+                - RewritePath=/user/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+
+            # =========================================================
+            # LOCATION SERVICE
+            # =========================================================
+
+            - id: location-service
+              uri: lb://LOCATION-SERVICE
+              predicates:
+                - Path=/api/v1/location/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: locationServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/location
+
+            # LOCATION OPENAPI
+            - id: location-service-openapi
+              uri: lb://LOCATION-SERVICE
+              predicates:
+                - Path=/location/v3/api-docs
+              filters:
+                - RewritePath=/location/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+
+            # =========================================================
+            # MATCHING SERVICE
+            # =========================================================
+
+            - id: matching-service
+              uri: lb://MATCHING-SERVICE
+              predicates:
+                - Path=/api/v1/matching/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: matchingServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/matching
+
+            # MATCHING SERVICE OPENAPI
+            - id: matching-service-openapi
+              uri: lb://MATCHING-SERVICE
+              predicates:
+                - Path=/matching/v3/api-docs
+              filters:
+                - RewritePath=/matching/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+
+            # =========================================================
+            # DRIVER SERVICE
+            # =========================================================
+
+            # DRIVER
+            - id: driver-service-driver
+              uri: lb://DRIVER-SERVICE
+              predicates:
+                - Path=/api/v1/driver/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: driverServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/driver
+
+            # VEHICLE
+            - id: driver-service-vehicle
+              uri: lb://DRIVER-SERVICE
+              predicates:
+                - Path=/api/v1/vehicle,/api/v1/vehicle/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: driverServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/driver
+
+            # DOCUMENT
+            - id: driver-service-document
+              uri: lb://DRIVER-SERVICE
+              predicates:
+                - Path=/api/v1/document,/api/v1/document/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: driverServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/driver
+
+            # DRIVER STATIC
+            - id: driver-service-driverstatic
+              uri: lb://DRIVER-SERVICE
+              predicates:
+                - Path=/api/v1/driverStatic/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: driverServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/driver
+
+            # DRIVER PREFERENCE
+            - id: driver-service-preference
+              uri: lb://DRIVER-SERVICE
+              predicates:
+                - Path=/api/v1/driverPreference/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: driverServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/driver
+
+            # DRIVER OPENAPI
+            - id: driver-service-openapi
+              uri: lb://DRIVER-SERVICE
+              predicates:
+                - Path=/driver/v3/api-docs
+              filters:
+                - RewritePath=/driver/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+
+            # =========================================================
+            # RATING SERVICE
+            # =========================================================
+
+            - id: rating-service
+              uri: lb://RATING-SERVICE
+              predicates:
+                - Path=/api/v1/rating/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: ratingServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/rating
+
+            # RATING OPENAPI
+            - id: rating-service-openapi
+              uri: lb://RATING-SERVICE
+              predicates:
+                - Path=/rating/v3/api-docs
+              filters:
+                - RewritePath=/rating/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+
+            # =========================================================
+            # ANALYTICS SERVICE
+            # =========================================================
+
+            - id: analytical-service
+              uri: lb://ANALYTICAL-SERVICE
+              predicates:
+                - Path=/api/v1/analytics/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: analyticalServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/analytics
+
+            # ANALYTICS OPENAPI
+            - id: analytical-service-openapi
+              uri: lb://ANALYTICAL-SERVICE
+              predicates:
+                - Path=/analytics/v3/api-docs
+              filters:
+                - RewritePath=/analytics/v3/api-docs, /v3/api-docs
+                - GatewayOpenApi
+
+
+            # =========================================================
+            # WEBSOCKET SERVICE
+            # =========================================================
+
+            # Chat session bootstrap is an HTTP endpoint on websocket-service;
+            # keep it separate from the WebSocket upgrade routes below.
+            - id: websocket-chat-session-api
+              uri: lb://WEBSOCKET-SERVICE
+              predicates:
+                - Path=/api/chat/**
+
+            - id: websocket-service
+              uri: lb:ws://WEBSOCKET-SERVICE
+              predicates:
+                - Path=/ws,/ws/**
+                - Header=Upgrade, (?i)websocket
+
+            # SockJS /info, iframe and HTTP fallback transports are not upgrades.
+            - id: websocket-sockjs-http
+              uri: lb://WEBSOCKET-SERVICE
+              predicates:
+                - Path=/ws,/ws/**
+
+            - id: websocket-native-service
+              uri: lb:ws://WEBSOCKET-SERVICE
+              predicates:
+                - Path=/ws-native,/ws-native/**
+
+
+            # =========================================================
+            # USER CREDENTIAL SERVICE
+            # =========================================================
+
+            - id: user-cred-service
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/api/v1/user-cred/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: authServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/auth
+
+
+# ============================================================
+# EUREKA
+# ============================================================
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+
+# ============================================================
+# RESILIENCE4J
+# ============================================================
+
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 10s
+  circuitbreaker:
+    instances:
+
+      authServiceCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      userServiceCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      locationServiceCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      riderServiceCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      driverServiceCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      ratingServiceCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      analyticalServiceCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+
+# ============================================================
+# SPRINGDOC
+# ============================================================
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
+  swagger-ui:
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
+
+    urls:
+      - name: Auth Service
+        url: /auth/v3/api-docs
+
+      - name: User Service
+        url: /user/v3/api-docs
+
+      - name: Driver Service
+        url: /driver/v3/api-docs
+
+      - name: Rider Service
+        url: /rider/v3/api-docs
+
+      - name: Payment Service
+        url: /payment/v3/api-docs
+
+      - name: Location Service
+        url: /location/v3/api-docs
+
+      - name: Rating Service
+        url: /rating/v3/api-docs
+
+      - name: Analytics Service
+        url: /analytics/v3/api-docs
+
+      - name: Matching Service
+        url: /matching/v3/api-docs
+
+      - name: Chat Service
+        url: /chat/v3/api-docs
+
+      - name: Notification Service
+        url: /notification/v3/api-docs
+
+
+# ============================================================
+# ACTUATOR
+# ============================================================
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+          - metrics
+          - prometheus
+
+  endpoint:
+    health:
+      show-details: when-authorized

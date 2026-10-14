@@ -1,0 +1,15 @@
+# Context tests must never discover or contact the local application stack.
+server:
+  port: 0
+spring:
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 1
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+jwt:
+  secret-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=

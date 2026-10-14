@@ -1,0 +1,6 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+#include? "Maps.xcconfig"
+#include "Generated.xcconfig"
+
+// Match Debug.xcconfig for generic simulator builds on Apple silicon and Intel.
+ARCHS[sdk=iphonesimulator*] = $(NATIVE_ARCH)

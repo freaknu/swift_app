@@ -1,0 +1,52 @@
+server:
+  address: ${SERVICE_BIND_ADDRESS:127.0.0.1}
+  port: 8089
+
+spring:
+  application:
+    name: ANALYTICAL-SERVICE
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/analyticalservice_db}
+    username: ${DB_USERNAME:swiftapp}
+    password: ${DB_PASSWORD}
+    hikari:
+      pool-name: AnalyticalServicePool
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      connection-timeout: 300000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      validation-timeout: 5000
+      leak-detection-threshold: 30000
+      keepalive-time: 300000
+      auto-commit: true
+      initialization-fail-timeout: 1
+      read-only: false
+      register-mbeans: true
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  data:
+    redis:
+      port: ${REDIS_PORT:6379}
+      host: ${REDIS_HOST:localhost}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  kafka:
+    ride-events-topic: ${RIDE_EVENTS_TOPIC:ride-events}

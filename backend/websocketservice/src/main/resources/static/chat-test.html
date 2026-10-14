@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chat Test Console</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f4f6f8;
+            --panel: #ffffff;
+            --text: #17202a;
+            --muted: #667085;
+            --line: #d8dee6;
+            --accent: #0f766e;
+            --accent-dark: #115e59;
+            --danger: #b42318;
+            --ok: #087443;
+            --bubble-own: #dcf5f0;
+            --bubble-other: #eef1f4;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        main {
+            width: min(1180px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 28px 0;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            line-height: 1.2;
+        }
+
+        h2 {
+            margin: 0 0 12px;
+            font-size: 17px;
+        }
+
+        .status {
+            min-width: 120px;
+            padding: 8px 12px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: var(--panel);
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .status.connected {
+            color: var(--ok);
+            border-color: var(--ok);
+        }
+
+        .status.error {
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: flex-end;
+            margin-bottom: 10px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 130px;
+            flex: 1;
+        }
+
+        .field label {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        input[type="text"], input[type="number"] {
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 9px 16px;
+            border: none;
+            border-radius: 6px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: var(--accent-dark);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        button.secondary {
+            background: #fff;
+            color: var(--text);
+            border: 1px solid var(--line);
+        }
+
+        button.danger {
+            background: var(--danger);
+        }
+
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 860px) {
+            .panels {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .messages {
+            height: 320px;
+            overflow-y: auto;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #fbfcfd;
+        }
+
+        .msg {
+            display: flex;
+            margin-bottom: 8px;
+        }
+
+        .msg.own {
+            justify-content: flex-end;
+        }
+
+        .bubble {
+            max-width: 80%;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: var(--bubble-other);
+        }
+
+        .msg.own .bubble {
+            background: var(--bubble-own);
+        }
+
+        .bubble .text {
+            font-size: 14px;
+            word-break: break-word;
+        }
+
+        .bubble .text.deleted {
+            font-style: italic;
+            color: var(--muted);
+        }
+
+        .bubble .meta {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .bubble .replyRef {
+            font-size: 11px;
+            color: var(--muted);
+            border-left: 2px solid var(--accent);
+            padding-left: 6px;
+            margin-bottom: 4px;
+        }
+
+        .bubble .actions {
+            margin-top: 6px;
+            display: flex;
+            gap: 6px;
+        }
+
+        .bubble .actions button {
+            padding: 3px 8px;
+            font-size: 11px;
+        }
+
+        .replyBar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--muted);
+            background: #eef6f5;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+        }
+
+        .sendRow {
+            display: flex;
+            gap: 8px;
+        }
+
+        .sendRow input {
+            flex: 1;
+        }
+
+        .log {
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            background: #101418;
+            color: #c8d2dc;
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>Chat Test Console</h1>
+        <div class="status" id="status">Disconnected</div>
+    </header>
+
+    <section class="card">
+        <h2>1. Connection</h2>
+        <div class="row">
+            <div class="field" style="flex: 3">
+                <label>WebSocket URL</label>
+                <input type="text" id="wsUrl" value="">
+            </div>
+            <button id="connectButton">Connect</button>
+            <button id="disconnectButton" class="secondary" disabled>Disconnect</button>
+        </div>
+        <div class="hint">Raw STOMP over plain WebSocket, same as the location test pages. No libraries.</div>
+    </section>
+
+    <section class="card">
+        <h2>2. Chat session</h2>
+        <div class="row">
+            <div class="field"><label>Name for driver</label><input type="text" id="sessNameDriver" value="Trip with Rahul"></div>
+            <div class="field"><label>Name for rider</label><input type="text" id="sessNameRider" value="Trip with Priya"></div>
+            <div class="field"><label>Driver ID</label><input type="number" id="sessDriverId" value="11"></div>
+            <div class="field"><label>Rider ID</label><input type="number" id="sessRiderId" value="22"></div>
+            <div class="field"><label>Ride ID</label><input type="number" id="sessRideId" value="101"></div>
+            <div class="field"><label>Ride status</label><input type="text" id="sessRideStatus" value="STARTED"></div>
+        </div>
+        <div class="row">
+            <button id="createSessionButton" disabled>Create session (POST /api/chat/sessions)</button>
+            <span class="hint">Publishes chatsession.created to Kafka so chatservice stores the session row.</span>
+        </div>
+        <div class="row">
+            <div class="field"><label>Session ID to join</label><input type="number" id="sessionId" value="101"></div>
+            <button id="subscribeButton" disabled>Subscribe</button>
+            <span class="hint">Subscribes to /topic/chat/session/{id}. Both panels share it.</span>
+        </div>
+    </section>
+
+    <div class="panels">
+        <section class="card" id="riderPanel">
+            <h2>Rider</h2>
+            <div class="row">
+                <div class="field"><label>User ID (sentById)</label><input type="number" id="riderUserId" value="22"></div>
+            </div>
+            <div class="messages" id="riderMessages"></div>
+            <div class="replyBar" id="riderReplyBar" hidden>
+                <span>Replying to <b id="riderReplyText"></b></span>
+                <button class="secondary" id="riderReplyCancel">Cancel</button>
+            </div>
+            <div class="sendRow">
+                <input type="text" id="riderInput" placeholder="Type a message as rider">
+                <button id="riderSend">Send</button>
+            </div>
+        </section>
+
+        <section class="card" id="driverPanel">
+            <h2>Driver</h2>
+            <div class="row">
+                <div class="field"><label>User ID (sentById)</label><input type="number" id="driverUserId" value="11"></div>
+            </div>
+            <div class="messages" id="driverMessages"></div>
+            <div class="replyBar" id="driverReplyBar" hidden>
+                <span>Replying to <b id="driverReplyText"></b></span>
+                <button class="secondary" id="driverReplyCancel">Cancel</button>
+            </div>
+            <div class="sendRow">
+                <input type="text" id="driverInput" placeholder="Type a message as driver">
+                <button id="driverSend">Send</button>
+            </div>
+        </section>
+    </div>
+
+    <section class="card">
+        <h2>Event log</h2>
+        <div class="log" id="log"></div>
+    </section>
+</main>
+
+<script>
+    const wsUrlInput = document.getElementById("wsUrl");
+    wsUrlInput.value = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host || "localhost:8085"}/ws-native`;
+
+    const statusEl = document.getElementById("status");
+    const logEl = document.getElementById("log");
+    const connectButton = document.getElementById("connectButton");
+    const disconnectButton = document.getElementById("disconnectButton");
+    const subscribeButton = document.getElementById("subscribeButton");
+    const createSessionButton = document.getElementById("createSessionButton");
+
+    let socket = null;
+    let connected = false;
+    let subId = 0;
+    let currentSub = null;
+
+    const store = new Map(); // messageId -> event payload
+    const replyCtx = { rider: null, driver: null };
+
+    function stompFrame(command, headers = {}, body = "") {
+        const headerLines = Object.entries(headers)
+            .map(([key, value]) => `${key}:${value}`)
+            .join("\n");
+        return `${command}\n${headerLines}\n\n${body}\0`;
+    }
+
+    function setStatus(text, className = "") {
+        statusEl.textContent = text;
+        statusEl.className = `status ${className}`.trim();
+    }
+
+    function appendLog(label, value) {
+        const timestamp = new Date().toLocaleTimeString();
+        logEl.textContent = `[${timestamp}] ${label}\n${JSON.stringify(value, null, 2)}\n\n${logEl.textContent}`;
+    }
+
+    function uuid() {
+        if (crypto.randomUUID) return crypto.randomUUID();
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+            const r = Math.random() * 16 | 0;
+            return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+    }
+
+    function sessionId() {
+        return Number(document.getElementById("sessionId").value);
+    }
+
+    function connect() {
+        if (socket && socket.readyState === WebSocket.OPEN) socket.close();
+        setStatus("Connecting");
+        socket = new WebSocket(wsUrlInput.value.trim());
+
+        socket.onopen = () => {
+            socket.send(stompFrame("CONNECT", { "accept-version": "1.2", "heart-beat": "0,0" }));
+        };
+
+        socket.onmessage = (event) => {
+            for (const raw of String(event.data).split("\0")) {
+                const frame = raw.trim();
+                if (!frame) continue;
+                if (frame.startsWith("CONNECTED")) {
+                    connected = true;
+                    setStatus("Connected", "connected");
+                    connectButton.disabled = true;
+                    disconnectButton.disabled = false;
+                    subscribeButton.disabled = false;
+                    createSessionButton.disabled = false;
+                    appendLog("CONNECTED", {});
+                } else if (frame.startsWith("MESSAGE")) {
+                    const idx = frame.indexOf("\n\n");
+                    if (idx > 0) {
+                        try {
+                            onChatEvent(JSON.parse(frame.slice(idx + 2).trim()));
+                        } catch (e) {
+                            appendLog("Bad MESSAGE body", frame.slice(idx + 2));
+                        }
+                    }
+                } else if (frame.startsWith("ERROR")) {
+                    appendLog("STOMP ERROR", frame);
+                }
+            }
+        };
+
+        socket.onerror = () => setStatus("Error", "error");
+        socket.onclose = () => {
+            connected = false;
+            currentSub = null;
+            setStatus("Disconnected");
+            connectButton.disabled = false;
+            disconnectButton.disabled = true;
+            subscribeButton.disabled = true;
+            createSessionButton.disabled = true;
+        };
+    }
+
+    function disconnect() {
+        if (socket) socket.close();
+    }
+
+    function subscribe() {
+        if (!connected) return;
+        if (currentSub) {
+            socket.send(stompFrame("UNSUBSCRIBE", { id: currentSub }));
+        }
+        const id = `sub-chat-${++subId}`;
+        const dest = `/topic/chat/session/${sessionId()}`;
+        socket.send(stompFrame("SUBSCRIBE", { id, destination: dest }));
+        currentSub = id;
+        appendLog("SUBSCRIBE", dest);
+    }
+
+    function sendFrame(destination, payload) {
+        if (!connected) {
+            appendLog("Not connected", {});
+            return;
+        }
+        socket.send(stompFrame("SEND", { destination, "content-type": "application/json" }, JSON.stringify(payload)));
+        appendLog("SEND " + destination, payload);
+    }
+
+    function basePayload(panel, text) {
+        return {
+            messageId: uuid(),
+            sentById: Number(document.getElementById(panel + "UserId").value),
+            messageContent: text,
+            sessionId: sessionId(),
+            messageUrl: null,
+            replyOfMessageId: null,
+            contentType: "TEXT",
+            messageType: "MESSAGE",
+            readByIds: null,
+            edited: false,
+            deleted: false
+        };
+    }
+
+    function sendFrom(panel) {
+        const input = document.getElementById(panel + "Input");
+        const text = input.value.trim();
+        if (!text) return;
+        const payload = basePayload(panel, text);
+        const replyTo = replyCtx[panel];
+        if (replyTo) {
+            payload.messageType = "REPLY";
+            payload.replyOfMessageId = replyTo;
+            clearReply(panel);
+            sendFrame("/app/chat.reply", payload);
+        } else {
+            sendFrame("/app/chat.send", payload);
+        }
+        input.value = "";
+    }
+
+    function startReply(panel, messageId) {
+        const data = store.get(messageId);
+        replyCtx[panel] = messageId;
+        document.getElementById(panel + "ReplyText").textContent =
+            `"${(data && data.messageContent || "").slice(0, 40)}" (${messageId.slice(0, 8)})`;
+        document.getElementById(panel + "ReplyBar").hidden = false;
+        document.getElementById(panel + "Input").focus();
+    }
+
+    function clearReply(panel) {
+        replyCtx[panel] = null;
+        document.getElementById(panel + "ReplyBar").hidden = true;
+    }
+
+    function editMessage(messageId) {
+        const data = store.get(messageId);
+        if (!data) return;
+        const text = prompt("Edit message:", data.messageContent);
+        if (text === null || text.trim() === data.messageContent) return;
+        sendFrame("/app/chat.update", {
+            messageId: data.messageId,
+            sentById: data.sentById,
+            messageContent: text.trim(),
+            sessionId: data.sessionId,
+            messageUrl: data.messageUrl || null,
+            replyOfMessageId: data.replyOfMessageId || null,
+            contentType: data.contentType || "TEXT",
+            messageType: data.messageType || "MESSAGE",
+            readByIds: data.readByIds || null,
+            edited: true,
+            deleted: false
+        });
+    }
+
+    function deleteMessage(messageId) {
+        const data = store.get(messageId);
+        if (!data) return;
+        if (!confirm("Delete this message for everyone?")) return;
+        sendFrame("/app/chat.delete", {
+            messageId: data.messageId,
+            sentById: data.sentById,
+            messageContent: data.messageContent,
+            sessionId: data.sessionId,
+            contentType: data.contentType || "TEXT",
+            messageType: data.messageType || "MESSAGE",
+            edited: false,
+            deleted: true
+        });
+    }
+
+    function onChatEvent(data) {
+        appendLog("RECV", data);
+        if (!data || !data.messageId) return;
+        if (data.deleted) {
+            store.set(data.messageId, { ...store.get(data.messageId), deleted: true });
+            markDeleted(data.messageId);
+            return;
+        }
+        if (data.edited && store.has(data.messageId)) {
+            store.set(data.messageId, { ...store.get(data.messageId), ...data });
+            markEdited(data.messageId, data.messageContent);
+            return;
+        }
+        store.set(data.messageId, data);
+        renderMessage("rider", data);
+        renderMessage("driver", data);
+    }
+
+    function renderMessage(panel, data) {
+        const ownId = Number(document.getElementById(panel + "UserId").value);
+        const list = document.getElementById(panel + "Messages");
+        const wrap = document.createElement("div");
+        wrap.className = "msg " + (data.sentById === ownId ? "own" : "other");
+        wrap.dataset.id = data.messageId;
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+
+        if (data.replyOfMessageId) {
+            const ref = document.createElement("div");
+            ref.className = "replyRef";
+            const orig = store.get(data.replyOfMessageId);
+            ref.textContent = "Reply to: " + (orig ? orig.messageContent.slice(0, 60) : data.replyOfMessageId.slice(0, 8));
+            bubble.appendChild(ref);
+        }
+
+        const text = document.createElement("div");
+        text.className = "text";
+        text.textContent = data.messageContent || "";
+        bubble.appendChild(text);
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = `from ${data.sentById} · ${new Date().toLocaleTimeString()}${data.edited ? " · edited" : ""}${data.messageType === "REPLY" ? " · reply" : ""}`;
+        bubble.appendChild(meta);
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+        const mkBtn = (label, fn) => {
+            const b = document.createElement("button");
+            b.className = "secondary";
+            b.textContent = label;
+            b.onclick = fn;
+            return b;
+        };
+        actions.appendChild(mkBtn("Reply", () => startReply(panel, data.messageId)));
+        actions.appendChild(mkBtn("Edit", () => editMessage(data.messageId)));
+        const del = mkBtn("Delete", () => deleteMessage(data.messageId));
+        del.classList.add("danger");
+        actions.appendChild(del);
+        bubble.appendChild(actions);
+
+        wrap.appendChild(bubble);
+        list.appendChild(wrap);
+        list.scrollTop = list.scrollHeight;
+    }
+
+    function findWraps(messageId) {
+        return [...document.querySelectorAll(`.msg[data-id="${CSS.escape(messageId)}"]`)];
+    }
+
+    function markEdited(messageId, newText) {
+        for (const wrap of findWraps(messageId)) {
+            const text = wrap.querySelector(".text");
+            if (text) text.textContent = newText;
+            const meta = wrap.querySelector(".meta");
+            if (meta && !meta.textContent.includes("edited")) meta.textContent += " · edited";
+        }
+    }
+
+    function markDeleted(messageId) {
+        for (const wrap of findWraps(messageId)) {
+            const bubble = wrap.querySelector(".bubble");
+            if (bubble) {
+                bubble.innerHTML = "";
+                const text = document.createElement("div");
+                text.className = "text deleted";
+                text.textContent = "This message was deleted";
+                bubble.appendChild(text);
+            }
+        }
+    }
+
+    async function createSession() {
+        const dto = {
+            sessionNameForDriver: document.getElementById("sessNameDriver").value,
+            sessionNameForRider: document.getElementById("sessNameRider").value,
+            driverId: Number(document.getElementById("sessDriverId").value),
+            riderId: Number(document.getElementById("sessRiderId").value),
+            rideId: Number(document.getElementById("sessRideId").value),
+            rideStatus: document.getElementById("sessRideStatus").value
+        };
+        try {
+            const res = await fetch("/api/chat/sessions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dto)
+            });
+            const body = await res.json().catch(() => ({}));
+            appendLog(`POST /api/chat/sessions -> ${res.status}`, body);
+            if (res.ok || res.status === 202) {
+                document.getElementById("sessionId").value = dto.rideId;
+                appendLog("Session ready — press Subscribe, then chat as rider and driver", { sessionId: dto.rideId });
+            }
+        } catch (e) {
+            appendLog("Session create failed", String(e));
+        }
+    }
+
+    connectButton.addEventListener("click", connect);
+    disconnectButton.addEventListener("click", disconnect);
+    subscribeButton.addEventListener("click", subscribe);
+    createSessionButton.addEventListener("click", createSession);
+
+    for (const panel of ["rider", "driver"]) {
+        document.getElementById(panel + "Send").addEventListener("click", () => sendFrom(panel));
+        document.getElementById(panel + "Input").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") sendFrom(panel);
+        });
+        document.getElementById(panel + "ReplyCancel").addEventListener("click", () => clearReply(panel));
+    }
+
+    connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+server:
+  address: ${SERVICE_BIND_ADDRESS:127.0.0.1}
+  port: 8083
+  shutdown: graceful
+spring:
+  application:
+    name: RIDER-SERVICE
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/riderservice_db}
+    username: ${DB_USERNAME:swiftapp}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+services:
+  user-url: ${USER_SERVICE_URL:http://localhost:8082}
+  driver-url: ${DRIVER_SERVICE_URL:http://localhost:8096}
+  matching-url: ${MATCHING_SERVICE_URL:http://localhost:9005}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  kafka:
+    ride-events-topic: ${RIDE_EVENTS_TOPIC:ride-events}
+  fare:
+    base-fare: 40.00
+    per-kilometer-rate: 12.00
+    per-minute-rate: 1.50
+    booking-fee: 10.00
+    tax-rate: 0.05
+    minimum-fare: 80.00
+    surge-multiplier: 1.00
+    average-speed-kph: 30
+    types:
+      BIKE:
+        base-fare: 25.00
+        per-kilometer-rate: 8.00
+        per-minute-rate: 1.00
+      SCOOTER:
+        base-fare: 25.00
+        per-kilometer-rate: 8.00
+        per-minute-rate: 1.00
+      AUTO:
+        base-fare: 30.00
+        per-kilometer-rate: 11.00
+        per-minute-rate: 1.25
+      STANDARD:
+        base-fare: 40.00
+        per-kilometer-rate: 12.00
+        per-minute-rate: 1.50
+      PREMIUM:
+        base-fare: 60.00
+        per-kilometer-rate: 16.00
+        per-minute-rate: 2.00
+      LUXURY:
+        base-fare: 100.00
+        per-kilometer-rate: 22.00
+        per-minute-rate: 3.00
+      SUV:
+        base-fare: 70.00
+        per-kilometer-rate: 18.00
+        per-minute-rate: 2.25
+      ELECTRIC:
+        base-fare: 40.00
+        per-kilometer-rate: 12.00
+        per-minute-rate: 1.50
+      POOL:
+        base-fare: 30.00
+        per-kilometer-rate: 9.00
+        per-minute-rate: 1.00

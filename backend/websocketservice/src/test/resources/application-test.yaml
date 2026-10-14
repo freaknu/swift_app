@@ -1,0 +1,18 @@
+spring:
+  kafka:
+    bootstrap-servers: 127.0.0.1:1
+    listener:
+      auto-startup: false
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 1
+
+eureka:
+  client:
+    enabled: false
+
+app:
+  redis:
+    listener:
+      auto-startup: false

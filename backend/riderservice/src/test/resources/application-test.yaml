@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:riderdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  kafka:
+    bootstrap-servers: 127.0.0.1:1
+    listener:
+      auto-startup: false
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 1
+eureka:
+  client:
+    enabled: false
+services:
+  user-url: http://127.0.0.1:1
+  driver-url: http://127.0.0.1:1
+  matching-url: http://127.0.0.1:1
+ride:
+  completion-outbox:
+    enabled: false

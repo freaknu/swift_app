@@ -1,0 +1,26 @@
+server:
+  address: ${SERVICE_BIND_ADDRESS:127.0.0.1}
+  port: 8085
+spring:
+  application:
+    name: WEBSOCKET-SERVICE
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY}
+
+services:
+  chat-url: ${CHAT_SERVICE_URL:http://localhost:9004}
+  driver-url: ${DRIVER_SERVICE_URL:http://localhost:8096}
+  rider-url: ${RIDER_SERVICE_URL:http://localhost:8083}
+  user-url: ${USER_SERVICE_URL:http://localhost:8082}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka

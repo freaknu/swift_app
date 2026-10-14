@@ -1,0 +1,16 @@
+{
+  "API_BASE_URL": "https://swift-app.duckdns.org/",
+  "WS_URL": "wss://swift-app.duckdns.org/ws-native",
+  "GOOGLE_PLACES_API_KEY": "",
+  "PUSH_ENABLED": false,
+  "FIREBASE_ANDROID_API_KEY": "",
+  "FIREBASE_ANDROID_APP_ID": "",
+  "FIREBASE_IOS_API_KEY": "",
+  "FIREBASE_IOS_APP_ID": "",
+  "FIREBASE_MACOS_API_KEY": "",
+  "FIREBASE_MACOS_APP_ID": "",
+  "FIREBASE_PROJECT_ID": "",
+  "FIREBASE_SENDER_ID": "",
+  "FIREBASE_STORAGE_BUCKET": ""
+}
+

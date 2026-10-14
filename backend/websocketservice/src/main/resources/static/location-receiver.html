@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ride Location Receiver</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f4f6f8;
+            --panel: #ffffff;
+            --text: #17202a;
+            --muted: #667085;
+            --line: #d8dee6;
+            --accent: #1d4ed8;
+            --accent-dark: #1e40af;
+            --danger: #b42318;
+            --ok: #087443;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        main {
+            width: min(1040px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 28px 0;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            line-height: 1.2;
+        }
+
+        .status {
+            min-width: 120px;
+            padding: 8px 12px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: var(--panel);
+            color: var(--muted);
+            text-align: center;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .status.connected {
+            color: var(--ok);
+        }
+
+        .status.error {
+            color: var(--danger);
+        }
+
+        .toolbar {
+            display: grid;
+            grid-template-columns: minmax(160px, 240px) auto 1fr;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 18px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        label {
+            display: grid;
+            gap: 7px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        input,
+        select {
+            width: 100%;
+            height: 42px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 0 11px;
+            color: var(--text);
+            background: #ffffff;
+            font: inherit;
+        }
+
+        input:focus,
+        select:focus {
+            outline: 2px solid rgba(29, 78, 216, 0.18);
+            border-color: var(--accent);
+        }
+
+        button {
+            height: 42px;
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            padding: 0 16px;
+            background: var(--accent);
+            color: #ffffff;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        button.secondary {
+            background: #ffffff;
+            color: var(--accent-dark);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+
+        .destination {
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            color: var(--muted);
+            overflow-wrap: anywhere;
+            font-family: Consolas, Menlo, monospace;
+            font-size: 13px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 0.9fr 1.1fr;
+            gap: 18px;
+            align-items: start;
+        }
+
+        .current,
+        .events {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 18px;
+        }
+
+        h2 {
+            margin: 0 0 14px;
+            font-size: 16px;
+        }
+
+        dl {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 12px;
+            margin: 0;
+        }
+
+        dt {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        dd {
+            margin: 0;
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        pre {
+            min-height: 364px;
+            max-height: 520px;
+            margin: 0;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: #101828;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        @media (max-width: 820px) {
+            header,
+            .toolbar,
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                align-items: stretch;
+                display: grid;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>Ride Location Receiver</h1>
+        <div id="status" class="status">Disconnected</div>
+    </header>
+
+    <section class="toolbar">
+        <label>
+            Topic
+            <select id="topicType">
+                <option value="RIDE">Ride</option>
+                <option value="DRIVER">Driver</option>
+            </select>
+        </label>
+        <label>
+            <span id="targetLabel">Ride ID</span>
+            <input id="targetId" type="number" value="101" min="1" required>
+        </label>
+        <button id="subscribeButton" type="button" disabled>Subscribe</button>
+        <div id="destination" class="destination">/topic/rides/101</div>
+    </section>
+
+    <div class="layout">
+        <section class="current">
+            <h2>Current Location</h2>
+            <dl>
+                <dt>Ride ID</dt>
+                <dd id="currentRideId">-</dd>
+
+                <dt>Driver ID</dt>
+                <dd id="currentDriverId">-</dd>
+
+                <dt>Rider ID</dt>
+                <dd id="currentRiderId">-</dd>
+
+                <dt>Latitude</dt>
+                <dd id="currentLatitude">-</dd>
+
+                <dt>Longitude</dt>
+                <dd id="currentLongitude">-</dd>
+
+                <dt>Nearby Place</dt>
+                <dd id="currentNearByPlace">-</dd>
+
+                <dt>Direction</dt>
+                <dd id="currentDirection">-</dd>
+            </dl>
+        </section>
+
+        <section class="events">
+            <h2>Received Messages</h2>
+            <pre id="log"></pre>
+        </section>
+    </div>
+</main>
+
+<script>
+    const socketUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host || "localhost:8085"}/ws-native`;
+    const statusEl = document.getElementById("status");
+    const logEl = document.getElementById("log");
+    const subscribeButton = document.getElementById("subscribeButton");
+    const topicTypeInput = document.getElementById("topicType");
+    const targetIdInput = document.getElementById("targetId");
+    const targetLabel = document.getElementById("targetLabel");
+    const destinationEl = document.getElementById("destination");
+
+    let socket;
+    let connected = false;
+    let subscriptionId = 0;
+
+    function stompFrame(command, headers = {}, body = "") {
+        const headerLines = Object.entries(headers)
+            .map(([key, value]) => `${key}:${value}`)
+            .join("\n");
+
+        return `${command}\n${headerLines}\n\n${body}\0`;
+    }
+
+    function parseFrame(frame) {
+        const splitAt = frame.indexOf("\n\n");
+        const headerText = splitAt >= 0 ? frame.slice(0, splitAt) : frame;
+        const body = splitAt >= 0 ? frame.slice(splitAt + 2) : "";
+        const lines = headerText.split("\n").filter(Boolean);
+        const command = lines.shift() || "";
+        const headers = {};
+
+        for (const line of lines) {
+            const separator = line.indexOf(":");
+            if (separator > -1) {
+                headers[line.slice(0, separator)] = line.slice(separator + 1);
+            }
+        }
+
+        return { command, headers, body };
+    }
+
+    function parseFrames(data) {
+        return String(data)
+            .split("\0")
+            .map((frame) => frame.trim())
+            .filter(Boolean)
+            .map(parseFrame);
+    }
+
+    function setStatus(text, className = "") {
+        statusEl.textContent = text;
+        statusEl.className = `status ${className}`.trim();
+    }
+
+    function destination() {
+        if (topicTypeInput.value === "DRIVER") {
+            return `/topic/drivers/${targetIdInput.value || "11"}`;
+        }
+
+        return `/topic/rides/${targetIdInput.value || "101"}`;
+    }
+
+    function updateDestination() {
+        destinationEl.textContent = destination();
+    }
+
+    function updateTopicFields() {
+        const driverTopic = topicTypeInput.value === "DRIVER";
+        targetLabel.textContent = driverTopic ? "Driver ID" : "Ride ID";
+        targetIdInput.value = driverTopic ? "11" : "101";
+        updateDestination();
+    }
+
+    function appendLog(payload) {
+        const timestamp = new Date().toLocaleTimeString();
+        logEl.textContent = `[${timestamp}]\n${JSON.stringify(payload, null, 2)}\n\n${logEl.textContent}`;
+    }
+
+    function setText(id, value) {
+        document.getElementById(id).textContent = value ?? "-";
+    }
+
+    function renderCurrent(payload) {
+        setText("currentRideId", payload.rideId);
+        setText("currentDriverId", payload.driverId);
+        setText("currentRiderId", payload.riderId);
+        setText("currentLatitude", payload.latitude);
+        setText("currentLongitude", payload.longitude);
+        setText("currentNearByPlace", payload.nearByPlace);
+        setText("currentDirection", payload.direction);
+    }
+
+    function subscribe() {
+        if (!connected) {
+            return;
+        }
+
+        const nextSubscriptionId = `subscription-${++subscriptionId}`;
+        socket.send(stompFrame("SUBSCRIBE", {
+            id: nextSubscriptionId,
+            destination: destination()
+        }));
+        setStatus("Subscribed", "connected");
+    }
+
+    function connect() {
+        connected = false;
+        subscribeButton.disabled = true;
+        setStatus("Connecting");
+
+        socket = new WebSocket(socketUrl);
+
+        socket.onopen = () => {
+            socket.send(stompFrame("CONNECT", {
+                "accept-version": "1.2",
+                "heart-beat": "0,0"
+            }));
+        };
+
+        socket.onmessage = (event) => {
+            for (const frame of parseFrames(event.data)) {
+                if (frame.command === "CONNECTED") {
+                    connected = true;
+                    subscribeButton.disabled = false;
+                    setStatus("Connected", "connected");
+                    subscribe();
+                }
+
+                if (frame.command === "MESSAGE") {
+                    let payload = frame.body;
+                    try {
+                        payload = JSON.parse(frame.body);
+                        renderCurrent(payload);
+                    } catch (error) {
+                        payload = { raw: frame.body };
+                    }
+                    appendLog(payload);
+                }
+            }
+        };
+
+        socket.onerror = () => {
+            setStatus("Error", "error");
+        };
+
+        socket.onclose = () => {
+            connected = false;
+            subscribeButton.disabled = true;
+            setStatus("Disconnected");
+        };
+    }
+
+    topicTypeInput.addEventListener("change", updateTopicFields);
+    targetIdInput.addEventListener("input", updateDestination);
+    subscribeButton.addEventListener("click", subscribe);
+    updateDestination();
+    connect();
+</script>
+</body>
+</html>

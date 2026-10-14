@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="1254" android:viewportHeight="1254">
+    <group android:pivotX="627" android:pivotY="627" android:scaleX="0.8" android:scaleY="0.8">
+        <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M 938,350 L 700,275 L 754,326 C 595,340 379,394 326,493 C 279,573 397,617 520,677 C 651,740 619,802 552,862 C 469,936 379,958 317,964 C 484,984 799,946 880,885 C 969,825 945,731 885,681 C 824,630 684,574 670,535 C 652,487 708,459 776,427 L 938,350 Z M 774,358 C 633,379 491,425 458,479 C 419,541 489,580 568,621 C 662,670 746,719 724,785 C 704,835 652,864 591,891 C 701,863 801,828 823,780 C 849,723 763,670 676,624 C 592,579 551,552 560,512 C 569,466 684,395 774,358 Z" />
+        <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M 536,459 C 507,474 486,505 492,530 L 527,525 C 517,505 519,482 536,459 Z" />
+        <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M 518,560 L 551,554 C 575,575 600,590 628,606 L 597,618 C 560,597 540,578 518,560 Z" />
+        <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M 651,634 L 684,628 C 720,648 750,672 772,693 L 738,702 C 705,670 681,650 651,634 Z" />
+    </group>
+</vector>

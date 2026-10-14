@@ -1,0 +1,43 @@
+server:
+  address: ${SERVICE_BIND_ADDRESS:127.0.0.1}
+  port: 8087
+
+spring:
+  application:
+    name: LOCATION-SERVICE
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/locationservice_db}
+    username: ${DB_USERNAME:swiftapp}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+google:
+  maps:
+    api-key: ${GOOGLE_MAPS_API_KEY:}
+    routes-base-url: ${GOOGLE_MAPS_ROUTES_BASE_URL:https://routes.googleapis.com}
+
+eta:
+  cache-ttl-seconds: ${ETA_CACHE_TTL_SECONDS:10}
+  kafka-topic: ${ETA_KAFKA_TOPIC:eta.updated}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

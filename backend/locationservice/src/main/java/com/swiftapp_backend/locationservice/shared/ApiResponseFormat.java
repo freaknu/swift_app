@@ -1,0 +1,20 @@
+package com.swiftapp_backend.locationservice.shared;
+
+import lombok.Builder;
+import lombok.Data;
+
+import java.time.OffsetDateTime;
+
+@Data
+@Builder
+public class ApiResponseFormat<T>{
+    private T data;
+    private int statusCode;
+    private String message;
+    private String endpoint;
+    private boolean success;
+    private Object errors;
+
+    @Builder.Default
+    private OffsetDateTime timestamp = OffsetDateTime.now();
+}
