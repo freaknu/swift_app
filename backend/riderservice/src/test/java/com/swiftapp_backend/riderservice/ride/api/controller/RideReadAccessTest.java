@@ -100,7 +100,7 @@ class RideReadAccessTest {
         private int readCalls;
 
         private StubFareService() {
-            super(null, null, null, null);
+            super(null, null, null, null, null);
         }
 
         @Override public FareDto getFareByRideId(Long rideId) {

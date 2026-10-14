@@ -58,7 +58,9 @@ class _OfferSectionState extends State<OfferSection> {
   }
 
   void _loadFirstCategory(RideTypeState state) {
-    if (context.read<OfferBloc>().state.lastRequest != null) return;
+    if (context.read<OfferBloc>().state.lastRequest?.rideTypeCode != null) {
+      return;
+    }
     final types = state.rideTypes.where((type) => type.active);
     if (types.isNotEmpty) {
       context.read<OfferBloc>().add(
@@ -76,9 +78,17 @@ class _OfferSectionState extends State<OfferSection> {
         final offers = state.offers
             .where(
               (offer) =>
+                  offer.id != null &&
                   offer.active != false &&
+                  (offer.rideTypeCode == null ||
+                      state.lastRequest?.rideTypeCode == null ||
+                      offer.rideTypeCode!.toUpperCase() ==
+                          state.lastRequest!.rideTypeCode!.toUpperCase()) &&
+                  (offer.validFrom == null || !offer.validFrom!.isAfter(now)) &&
                   (offer.validUntil == null ||
-                      !offer.validUntil!.isBefore(now)),
+                      !offer.validUntil!.isBefore(now)) &&
+                  (offer.usageLimit == null ||
+                      (offer.usedCount ?? 0) < offer.usageLimit!),
             )
             .toList();
 

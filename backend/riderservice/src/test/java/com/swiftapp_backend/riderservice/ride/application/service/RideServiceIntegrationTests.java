@@ -120,7 +120,7 @@ class RideServiceIntegrationTests {
     @Test
     void executesTheValidRideLifecycleAndRejectsInvalidTransitions() {
         var requested = rideService.requestRide(
-                new RideRequestDto(101L, 12L, 101L, "STANDARD", route));
+                new RideRequestDto(101L, null, 101L, "STANDARD", route));
 
         assertThat(requested.getRiderId()).isEqualTo(101L);
         assertThat(requested.getCurrentStatus()).isEqualTo(RideStatus.MATCHING);
@@ -129,7 +129,7 @@ class RideServiceIntegrationTests {
                 .containsExactly(RideStatus.REQUESTED, RideStatus.MATCHING);
 
         assertThatThrownBy(() -> rideService.requestRide(
-                new RideRequestDto(101L, 12L, 101L, "STANDARD", route)))
+                new RideRequestDto(101L, null, 101L, "STANDARD", route)))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("active ride");
 

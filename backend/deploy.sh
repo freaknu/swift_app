@@ -216,10 +216,13 @@ stage_release() {
     for service in "${SERVICE_ORDER[@]}"; do
         if [[ " ${TARGETS[*]} " == *" $service "* ]]; then
             jar="$(find_jar "$service")" || return 1
+            cp "$jar" "$stage/$service.jar" || return 1
         else
             jar="$PREVIOUS_RELEASE/$service.jar"
+            # Immutable sibling JARs can share disk blocks across partial releases.
+            # Keep complete releases and rollback paths without duplicating every JAR.
+            ln "$jar" "$stage/$service.jar" || cp "$jar" "$stage/$service.jar" || return 1
         fi
-        cp "$jar" "$stage/$service.jar" || return 1
         chmod 444 "$stage/$service.jar" || return 1
     done
     validate_release "$stage" || return 1

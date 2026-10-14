@@ -2,9 +2,9 @@
 
 ## Android APK
 
-[Download SwiftApp 1.0.1 APK](https://github.com/freaknu/swift_app/releases/download/v1.0.1/SwiftApp-1.0.1.apk) · [Release notes and checksum](https://github.com/freaknu/swift_app/releases/tag/v1.0.1)
+[Download SwiftApp 1.0.2 APK](https://github.com/freaknu/swift_app/releases/download/v1.0.2/SwiftApp-1.0.2.apk) · [Release notes and checksum](https://github.com/freaknu/swift_app/releases/tag/v1.0.2)
 
-Android 7.0/API 24 or newer. Version 1.0.1, build 2, using the existing Android Debug test signer. Connects to the hosted HTTPS/WSS backend.
+Android 7.0/API 24 or newer. Version 1.0.2, build 3, using the existing Android Debug test signer. Connects to the hosted HTTPS/WSS backend.
 
 [Watch the rider and driver demo](https://github.com/freaknu/swift_app/issues/1) · [Live API docs](https://swift-app.duckdns.org/swagger-ui.html) · [Architecture and event flows](../docs/architecture/README.md)
 
@@ -69,3 +69,9 @@ flutter build ios --simulator --debug --dart-define-from-file=config/dart-define
 ```
 
 Run live integration tests with disposable test accounts and tokens supplied through test Dart defines. Never commit tokens or account credentials. Release signing is not supplied; configure your own private signing before distribution.
+
+## Ride offers
+
+The route preview continues to the vehicle, fare and offers review before booking. Select an offer to request a new backend quote; booking stays disabled until that quote matches the selected vehicle and offer. Tap the selected offer again to remove it. Savings appear after the backend confirms the discount.
+
+The backend validates dates, vehicle eligibility, minimum fare and usage limits again when creating the ride. The saved discounted total is used at checkout. A quote does not consume a use; cancelled or unmatched rides release it. Launch campaigns are SWIFT10 (10% off fares from INR 100, capped at INR 30) and SWIFT20 (INR 20 off fares from INR 150). Each allows three uses per rider and 1,000 total uses, subject to its server validity dates. Only one offer can apply to a ride.

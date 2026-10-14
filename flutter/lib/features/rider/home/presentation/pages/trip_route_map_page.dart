@@ -6,7 +6,7 @@ import 'dart:math' as math;
 import 'package:swift_app/API/dio_client.dart';
 import 'package:swift_app/API/rider_api_endpoints.dart';
 import 'package:swift_app/core/di/injection_container.dart';
-import 'package:swift_app/features/common/authentication/auth/data/datasource/auth_local_datasource.dart';
+import 'package:swift_app/features/common/fare/presentation/blocs/fare_bloc.dart';
 import 'package:swift_app/features/common/shared/widgets/glass_ui.dart';
 import 'package:swift_app/features/common/shared/widgets/app_shimmer.dart';
 import 'package:swift_app/features/common/shared/widgets/swift_app_bar.dart';
@@ -15,16 +15,12 @@ import 'package:swift_app/features/rider/home/presentation/blocs/ride_type_bloc.
 import 'package:swift_app/features/rider/home/presentation/blocs/ride_type_event.dart';
 import 'package:swift_app/features/rider/home/presentation/blocs/ride_type_state.dart';
 import 'package:swift_app/features/rider/home/presentation/blocs/user_bloc.dart';
+import 'package:swift_app/features/rider/home/presentation/blocs/offer_bloc.dart';
 import 'package:swift_app/features/rider/home/presentation/models/location_selection.dart';
 import 'package:swift_app/features/rider/home/presentation/widgets/google_map_style.dart';
-import 'package:swift_app/features/rider/ride/domain/entity/ride_request.dart';
-import 'package:swift_app/features/rider/ride/domain/entity/ride_response.dart';
-import 'package:swift_app/features/rider/ride/domain/entity/route.dart'
-    as ride_models;
 import 'package:swift_app/features/rider/ride/presentation/blocs/ride_bloc.dart';
-import 'package:swift_app/features/rider/ride/presentation/blocs/ride_event.dart';
 import 'package:swift_app/features/rider/ride/presentation/blocs/ride_state.dart';
-import 'package:swift_app/features/rider/ride/presentation/pages/ride_status_page.dart';
+import 'package:swift_app/features/rider/ride/presentation/pages/ride_options_page.dart';
 import 'package:swift_app/themes/app_radii.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -90,7 +86,7 @@ class _TripRouteMapPageState extends State<TripRouteMapPage> {
   final Map<String, _TypeQuote> _quotes = {};
   RideType? _selectedType;
   bool _quotesKickStarted = false;
-  bool _openingStatus = false;
+  bool _openingOptions = false;
 
   @override
   void initState() {
@@ -339,54 +335,37 @@ class _TripRouteMapPageState extends State<TripRouteMapPage> {
     _fitTrip();
   }
 
-  void _requestRide() {
+  Future<void> _reviewRide() async {
     final rideType = _selectedType;
-    final user = context.read<UserBloc>().state.user;
-    final authUserId = sl<AuthLocalDatasource>().userId;
     if (rideType == null ||
         rideType.code.isEmpty ||
-        user == null ||
-        authUserId == null) {
+        _openingOptions ||
+        context.read<RideBloc>().state.isLoading) {
       return;
     }
-
-    context.read<RideBloc>().add(
-      BookRide(
-        request: RideRequest(
-          authUserId: authUserId,
-          riderId: user.id,
-          offerId: null,
-          rideType: rideType.code,
-          route: ride_models.Route(
-            offerId: null,
-            pickupLatitude: _pickup.latitude,
-            pickupLongitude: _pickup.longitude,
-            destinationLatitude: _destination.latitude,
-            destinationLongitude: _destination.longitude,
-            rideType: rideType.code,
+    _openingOptions = true;
+    final completed = await Navigator.of(context).push<bool>(
+      CupertinoPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<UserBloc>.value(value: context.read<UserBloc>()),
+            BlocProvider<RideTypeBloc>.value(
+              value: context.read<RideTypeBloc>(),
+            ),
+            BlocProvider<OfferBloc>.value(value: context.read<OfferBloc>()),
+            BlocProvider<FareBloc>.value(value: context.read<FareBloc>()),
+            BlocProvider<RideBloc>.value(value: context.read<RideBloc>()),
+          ],
+          child: RideOptionsPage(
+            trip: widget.trip,
+            preferredRideTypeCode: rideType.code,
           ),
         ),
       ),
     );
-  }
-
-  Future<void> _openRideStatus(RideResponse ride, int riderId) async {
-    if (_openingStatus) return;
-    _openingStatus = true;
-    final retry = await Navigator.of(context).push<bool>(
-      CupertinoPageRoute(
-        builder: (_) => RideStatusPage(
-          ride: ride,
-          riderId: riderId,
-          pickupLabel: widget.trip.pickup.label,
-          destinationLabel: widget.trip.destination.label,
-        ),
-      ),
-    );
     if (!mounted) return;
-    _openingStatus = false;
-    context.read<RideBloc>().add(const ResetRide());
-    if (retry != true) Navigator.of(context).pop();
+    _openingOptions = false;
+    if (completed == true) Navigator.of(context).pop();
   }
 
   /// Google encoded-polyline decoder (no extra dependency).
@@ -560,115 +539,102 @@ class _TripRouteMapPageState extends State<TripRouteMapPage> {
       _refreshRoutePolylines(isDark);
     }
 
-    return BlocListener<RideBloc, RideState>(
-      listenWhen: (previous, current) =>
-          previous.status != current.status &&
-          current.status == RideStatus.success,
-      listener: (_, state) {
-        final user = context.read<UserBloc>().state.user;
-        if (state.ride != null && user != null) {
-          _openRideStatus(state.ride!, user.id);
-        }
-      },
-      child: MediaQuery.removeViewInsets(
-        context: context,
-        removeBottom: true,
-        child: Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          resizeToAvoidBottomInset: false,
-          body: Column(
-            children: [
-              SizedBox(
-                height: (MediaQuery.sizeOf(context).height * 0.34).clamp(
-                  205.0,
-                  320.0,
-                ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: cameraTarget,
-                          zoom: initialZoom,
-                        ),
-                        style: AppGoogleMapStyle.forBrightness(
-                          theme.brightness,
-                        ),
-                        onMapCreated: (controller) async {
-                          _mapController = controller;
-                          await Future<void>.delayed(
-                            const Duration(milliseconds: 250),
-                          );
-                          if (mounted) await _fitTrip();
-                        },
-                        markers: {
-                          Marker(
-                            markerId: const MarkerId('pickup'),
-                            position: _pickup,
-                            infoWindow: InfoWindow(title: pickupLabel),
-                            icon: BitmapDescriptor.defaultMarkerWithHue(
-                              BitmapDescriptor.hueGreen,
-                            ),
+    return MediaQuery.removeViewInsets(
+      context: context,
+      removeBottom: true,
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        resizeToAvoidBottomInset: false,
+        body: Column(
+          children: [
+            SizedBox(
+              height: (MediaQuery.sizeOf(context).height * 0.34).clamp(
+                205.0,
+                320.0,
+              ),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: cameraTarget,
+                        zoom: initialZoom,
+                      ),
+                      style: AppGoogleMapStyle.forBrightness(theme.brightness),
+                      onMapCreated: (controller) async {
+                        _mapController = controller;
+                        await Future<void>.delayed(
+                          const Duration(milliseconds: 250),
+                        );
+                        if (mounted) await _fitTrip();
+                      },
+                      markers: {
+                        Marker(
+                          markerId: const MarkerId('pickup'),
+                          position: _pickup,
+                          infoWindow: InfoWindow(title: pickupLabel),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueGreen,
                           ),
-                          Marker(
-                            markerId: const MarkerId('destination'),
-                            position: _destination,
-                            infoWindow: InfoWindow(title: destinationLabel),
-                            icon: BitmapDescriptor.defaultMarkerWithHue(
-                              BitmapDescriptor.hueRed,
-                            ),
+                        ),
+                        Marker(
+                          markerId: const MarkerId('destination'),
+                          position: _destination,
+                          infoWindow: InfoWindow(title: destinationLabel),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueRed,
                           ),
-                        },
-                        polylines: _routePolylines,
-                        myLocationButtonEnabled: false,
-                        zoomControlsEnabled: false,
-                        mapToolbarEnabled: false,
-                        compassEnabled: false,
+                        ),
+                      },
+                      polylines: _routePolylines,
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
+                      compassEnabled: false,
+                    ),
+                  ),
+                  SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                      child: SwiftAppBar(
+                        toolbarHeight: SwiftAppBar.toolbarHeightFor(context),
+                        primary: false,
+                        backgroundColor: theme.colorScheme.surface.withValues(
+                          alpha: 0.94,
+                        ),
+                        foregroundColor: theme.colorScheme.onSurface,
+                        automaticallyImplyLeading: false,
+                        leading: SwiftAppBarAction(
+                          icon: SwiftIcons.chevronLeft,
+                          onPressed: () => Navigator.of(context).pop(),
+                          tooltip: 'Back',
+                        ),
+                        title: Text(
+                          'Choose your ride',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        actions: [
+                          SwiftAppBarAction(
+                            icon: SwiftIcons.locateFixed,
+                            tooltip: 'Fit route',
+                            onPressed: _fitTrip,
+                          ),
+                        ],
                       ),
                     ),
-                    SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                        child: SwiftAppBar(
-                          toolbarHeight: SwiftAppBar.toolbarHeightFor(context),
-                          primary: false,
-                          backgroundColor: theme.colorScheme.surface.withValues(
-                            alpha: 0.94,
-                          ),
-                          foregroundColor: theme.colorScheme.onSurface,
-                          automaticallyImplyLeading: false,
-                          leading: SwiftAppBarAction(
-                            icon: SwiftIcons.chevronLeft,
-                            onPressed: () => Navigator.of(context).pop(),
-                            tooltip: 'Back',
-                          ),
-                          title: Text(
-                            'Choose your ride',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          actions: [
-                            SwiftAppBarAction(
-                              icon: SwiftIcons.locateFixed,
-                              tooltip: 'Fit route',
-                              onPressed: _fitTrip,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              Expanded(
-                child: _bookingSheet(context, pickupLabel, destinationLabel),
-              ),
-            ],
-          ),
+            ),
+            Expanded(
+              child: _bookingSheet(context, pickupLabel, destinationLabel),
+            ),
+          ],
         ),
       ),
     );
@@ -946,7 +912,7 @@ class _TripRouteMapPageState extends State<TripRouteMapPage> {
             ? 'Fare unavailable'
             : quote?.fare == null
             ? 'Calculating fare…'
-            : 'Book ${type.name}';
+            : 'Review fare & offers';
         final canBook =
             type != null && quote?.fare != null && !rideState.isLoading;
         return Column(
@@ -956,7 +922,7 @@ class _TripRouteMapPageState extends State<TripRouteMapPage> {
               width: double.infinity,
               height: 52,
               child: FilledButton(
-                onPressed: canBook ? _requestRide : null,
+                onPressed: canBook ? _reviewRide : null,
                 style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   disabledBackgroundColor:

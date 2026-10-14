@@ -79,9 +79,15 @@ public class RideService {
         }
 
         FareEstimateRequest route = request.route();
-        FareEstimateDto estimate = fareService.estimate(new FareEstimateRequest(
-                route.offerId(), route.pickupLatitude(), route.pickupLongitude(),
-                route.destinationLatitude(), route.destinationLongitude(), vehicleType.name()));
+        if (request.offerId() != null && route.offerId() != null
+                && !request.offerId().equals(route.offerId())) {
+            throw ApiException.badRequest("Route offerId must match selected offer");
+        }
+        Long offerId = request.offerId() != null ? request.offerId() : route.offerId();
+        FareService.BookingFare bookingFare = fareService.estimateForBooking(new FareEstimateRequest(
+                offerId, route.pickupLatitude(), route.pickupLongitude(),
+                route.destinationLatitude(), route.destinationLongitude(), vehicleType.name()), request.riderId());
+        FareEstimateDto estimate = bookingFare.estimate();
 
         LocalDateTime now = LocalDateTime.now();
         RideModel ride = RideModel.builder()
@@ -95,6 +101,7 @@ public class RideService {
                 .estimatedDuration(estimate.estimatedDurationSeconds())
                 .rideType(vehicleType.storedRideType())
                 .rideTypeCode(vehicleType.name())
+                .offer(bookingFare.offer())
                 .requestedAt(now)
                 .currentStatus(RideStatus.REQUESTED)
                 .build();
@@ -112,7 +119,7 @@ public class RideService {
 
         // Start matching with the exact vehicle category selected by the rider.
         publishRideRequested(ride);
-        publishApplyOffer(ride,request.authUserId(),request.offerId());
+        publishApplyOffer(ride, request.authUserId(), offerId);
 
         return rideMapper.toDto(ride);
     }
@@ -190,7 +197,9 @@ public class RideService {
                 "NO_AVAILABLE_DRIVER".equals(reason)
                         ? "No drivers are available right now. Please try again."
                         : "Driver search ended. Please try again.");
-        return rideMapper.toDto(rideRepository.save(ride));
+        ride = rideRepository.save(ride);
+        if (ride.getOffer() != null) fareService.releaseOffer(ride.getOffer());
+        return rideMapper.toDto(ride);
     }
 
     @Transactional
@@ -278,6 +287,7 @@ public class RideService {
                 request.reason().trim());
         ride = rideRepository.save(ride);
 
+        if (ride.getOffer() != null) fareService.releaseOffer(ride.getOffer());
         // broadcast cancellation ->
         publishRideCancelled(ride, request.actorType());
         return rideMapper.toDto(ride);

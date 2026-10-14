@@ -13,6 +13,10 @@ cat > "$TEST_DIR/harness.sh" <<'BASH'
 set -euo pipefail
 scenario="$1"
 source "$DEPLOY_SCRIPT"
+ln() {
+    if [[ "$scenario" == single-copy-fallback && "${1:-}" != -s ]]; then return 1; fi
+    command ln "$@"
+}
 ROOT_DIR="$TEST_DIR/$scenario"
 DEPLOY_DIR="$ROOT_DIR/deployment"
 EVENTS="$ROOT_DIR/events"
@@ -62,7 +66,7 @@ case "$scenario" in
         ;;
 esac
 case "$scenario" in
-    single) main paymentservice ;;
+    single|single-copy-fallback) main paymentservice ;;
     first-single) main paymentservice ;;
     *) main all ;;
 esac
@@ -106,6 +110,25 @@ assert_contains "$TEST_DIR/single/deployment/current/authservice.jar" old-authse
 [[ $(grep -c '^build ' "$TEST_DIR/single/events") == 1 ]] || fail 'Single deploy rebuilt siblings.'
 [[ $(grep -c 'systemctl restart' "$TEST_DIR/single/events") == 1 ]] || fail 'Single deploy restarted siblings.'
 printf 'PASS: a single-service release preserves all 13 sibling JARs\n'
+python3 - "$TEST_DIR/single/deployment" <<'PY'
+import os,sys
+root=sys.argv[1]
+assert os.path.samefile(root+'/current/authservice.jar', root+'/releases/previous/authservice.jar')
+assert not os.path.samefile(root+'/current/paymentservice.jar', root+'/releases/previous/paymentservice.jar')
+assert open(root+'/releases/previous/paymentservice.jar').read().strip()=='old-paymentservice'
+assert open(root+'/current/paymentservice.jar').read().strip()=='new-paymentservice'
+PY
+printf 'PASS: immutable sibling JARs share disk space and changed JARs preserve rollback\n'
+
+/bin/bash "$TEST_DIR/harness.sh" single-copy-fallback >/dev/null
+python3 - "$TEST_DIR/single-copy-fallback/deployment" <<'PY'
+import os,sys
+root=sys.argv[1]
+assert not os.path.samefile(root+'/current/authservice.jar', root+'/releases/previous/authservice.jar')
+assert open(root+'/current/authservice.jar').read().strip()=='old-authservice'
+assert open(root+'/current/paymentservice.jar').read().strip()=='new-paymentservice'
+PY
+printf 'PASS: filesystems without hard links safely fall back to copying siblings\n'
 
 if /bin/bash "$TEST_DIR/harness.sh" first-single >/dev/null 2>&1; then fail 'First single-service deploy succeeded.'; fi
 [[ ! -s "$TEST_DIR/first-single/events" ]] || fail 'Rejected first single deploy built or changed services.'
@@ -175,4 +198,4 @@ printf 'PASS: Bash 3 push protects runtime files, keys, credential placement and
 
 if /bin/bash "$DEPLOY_SCRIPT" aiservice >/dev/null 2>&1; then fail 'Unconfigured AI service was accepted.'; fi
 printf 'PASS: unconfigured AI scaffold cannot be deployed\n'
-printf 'All 8 deployment smoke checks passed.\n'
+printf 'All 10 deployment smoke checks passed.\n'

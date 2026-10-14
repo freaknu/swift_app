@@ -101,9 +101,6 @@ public class OfferEntity {
             this.usedCount = 0;
         }
 
-        if (!this.active) {
-            this.active = true;
-        }
     }
 
     @PreUpdate

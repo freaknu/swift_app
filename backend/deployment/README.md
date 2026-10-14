@@ -35,6 +35,8 @@ bash deploy.sh all
 
 Source sync preserves runtime data. All builds finish before activation; a deployment lock prevents overlap. A database backup is taken before infrastructure/schema changes. Services run as the deployment user with protected runtime files; driver documents live under `/var/lib/swiftapp/driver-documents`.
 
+Partial releases hard link unchanged, read-only JARs from the previous immutable release when the filesystem permits it, with a copy fallback. The rebuilt service gets its own file. This preserves complete release directories and rollback content while avoiding a full set of duplicate JARs on each single-service deployment.
+
 ## HTTPS and WebSockets
 
 Bootstrap serves ACME HTTP challenges, obtains a Let's Encrypt certificate and redirects normal HTTP to HTTPS. Set `SWIFT_TLS_EMAIL` for certificate notices. Renewal validates and reloads Nginx.

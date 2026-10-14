@@ -30,7 +30,7 @@ class FareServiceTest {
 
     private FareService serviceWith(FareProperties props) {
         // estimate() never touches the repository or mapper.
-        return new FareService(null, null, new FixedDistanceUtil(), props);
+        return new FareService(null, null, new FixedDistanceUtil(), props, null);
     }
 
     private FareProperties bikeOverrideProps() {

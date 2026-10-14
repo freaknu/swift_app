@@ -8,6 +8,7 @@ public class OfferMapper {
         return OfferResponseDto
                 .builder()
                 .id(data.getId())
+                .active(data.isActive())
                 .offerCode(data.getOfferCode())
                 .title(data.getTitle())
                 .description(data.getDescription())

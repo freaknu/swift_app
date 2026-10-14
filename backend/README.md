@@ -86,3 +86,5 @@ bash scripts/check-architecture.sh
 ```
 
 Some integration tests require PostgreSQL/Kafka or explicit environment settings. Architecture checks may report existing layering exceptions; inspect output before claiming a clean result. See [EC2 deployment](deployment/README.md) for HTTPS/WSS, private configuration and rollback. Initial deployment includes all 14 runnable modules; later changes can target one.
+
+Ride offers are validated and reserved by the rider service, with the discounted fare saved on the ride and carried into payment. See [offer eligibility, booking and deployment](riderservice/README.md#ride-offers) for the contract and the explicit launch-campaign seed.

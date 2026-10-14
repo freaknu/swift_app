@@ -9,7 +9,8 @@ health probes at `/actuator/health` while the service is running.
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `POST` | `/api/v1/fare/estimate` | Estimate distance, duration, and fare |
+| `POST` | `/api/v1/fare/estimate` | Estimate distance, duration, and fare; validate an optional promotion |
+| `POST` | `/api/v1/offer/getOffers` | List current eligible ride promotions |
 | `GET` | `/api/v1/ridetype/getAllRideTypes?isDriver=false` | List all 15 selectable vehicle categories |
 | `POST` | `/api/v1/ride/requestRide` | Request a ride |
 | `GET` | `/api/v1/ride/getRideDetail/{rideId}` | Fetch one ride |
@@ -62,6 +63,73 @@ Example cancellation:
   "reason": "Changed plans"
 }
 ```
+
+## Ride offers
+
+`POST /api/v1/offer/getOffers` accepts `{"rideTypeCode":"BIKE"}`. Generic
+promotions (`ride_type_code IS NULL`) are included for every vehicle. Omit or
+set `rideTypeCode` to `null` to browse all vehicle categories. The authenticated
+rider's completed rides and current reservations determine first-ride and
+per-user eligibility. The server uses the current UTC time for validity;
+`startFrom` cannot make an expired promotion valid. Database timestamps and
+returned `validFrom` / `validUntil` values are UTC, with an exclusive end time.
+Offers below their minimum fare can appear in this list because the list has
+no route/fare; their quote explains the required minimum.
+
+Pass the selected offer's numeric `id` as `offerId` in `/api/v1/fare/estimate`.
+The response's existing `fare.discount` contains the savings and
+`fare.totalFare` contains the amount payable. Percentage discounts use the
+rounded gross fare (including its tax); fixed discounts use their configured
+amount. Both honour `maximumDiscount` and `minimumFare`, round to two decimal
+places, and leave at least INR 1.00 payable for the supported Razorpay flow.
+The tax line remains the calculated gross-fare tax. A quote consumes no quota.
+An unavailable, expired, exhausted, invalid or wrong-vehicle offer returns a
+clear error instead of silently quoting the full fare.
+
+Send the same `offerId` in the ride request and its nested `route`. For older
+clients, either location alone is accepted; conflicting values are rejected.
+The backend calculates the fare again, checks ownership and eligibility, and
+saves the offer association, discount and net payable amount in the same ride
+transaction. Client-supplied totals are never trusted. Completion events and
+subsequent payment validation use that persisted net amount. Only one offer
+can be selected for a ride; the `stackable` metadata does not enable stacking.
+
+A promotion row lock serializes reservations. PostgreSQL limits the lock wait
+to three seconds and returns a retryable JSON `503` if the promotion is busy;
+that failed transaction consumes no usage. `used_count` is maintained from
+rides in `REQUESTED`, `MATCHING`, `DRIVER_ASSIGNED`, `DRIVER_ARRIVED`, `STARTED`
+and `COMPLETED`. Both global and per-user limits count these states. A booking
+reserves a use; `CANCELLED` or `MATCH_FAILED` releases it in the same transaction,
+while a completed ride retains it. `new_user_only` checks whether the rider has
+any completed ride. The existing asynchronous user-service offer history is
+retained as a notification/history integration; it is not the quota authority.
+
+Before deploying this change against an existing PostgreSQL database, back up
+`riderservice_db` and apply
+[`20261015_allow_reusable_ride_offers.sql`](deployment/migrations/20261015_allow_reusable_ride_offers.sql)
+with `psql -v ON_ERROR_STOP=1`. It idempotently removes only a single-column
+`UNIQUE (offer_id)` constraint introduced by the former one-to-one mapping,
+keeps the offer foreign key and active-rider/driver uniqueness, and adds a
+usage-query index. A promotion can then apply to many rides. Existing rows
+and configured credentials are preserved. Seed campaigns separately with
+unique `offer_code` values and `INSERT ... ON CONFLICT (offer_code) DO NOTHING`;
+re-running a deployment must not reactivate or reset an existing campaign.
+
+The explicit [launch seed](deployment/seeds/20261015_launch_offer.sql) adds SWIFT10 (10% off, maximum INR 30, minimum fare INR 100) and SWIFT20 (INR 20 off, minimum fare INR 150). Each is available to all vehicle types for 90 days from its first insertion, with 1,000 total uses and three uses per rider. Apply the seed once after the new service is ready; it is not run at application startup. Re-running it preserves existing usage and validity dates.
+
+`RideOfferIntegrationTest` covers discount calculations, eligibility,
+quote/booking consistency, reusability, cancellations, completion events,
+transaction rollback, concurrent global/per-user limits and concurrent
+campaign edits. The optional `RideOfferPostgresTest` repeats those tests and
+verifies the three-second lock bound on a disposable PostgreSQL database:
+
+```bash
+./mvnw -Dtest=RideOfferPostgresTest \
+  -Dswift.qa.postgres.url=jdbc:postgresql://127.0.0.1:55432/disposable_offers \
+  -Dswift.qa.postgres.username=qa -Dswift.qa.postgres.password=qa test
+```
+
+This opt-in suite creates and drops its schema; use a disposable database.
 
 ## State and integration guarantees
 

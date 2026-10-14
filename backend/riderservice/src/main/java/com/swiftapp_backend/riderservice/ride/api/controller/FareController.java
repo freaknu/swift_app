@@ -33,7 +33,7 @@ public class FareController {
     public ResponseEntity<ApiResponseFormat<FareEstimateDto>> estimateFare(@RequestHeader("x-user-id") Long authUserId,
             @Valid @RequestBody FareEstimateRequest request,
             HttpServletRequest httpRequest) {
-        return ok(fareService.estimate(request), "Fare estimated", httpRequest);
+        return ok(fareService.estimate(request, authUserId), "Fare estimated", httpRequest);
     }
 
     @GetMapping("/rides/{rideId}/fare")

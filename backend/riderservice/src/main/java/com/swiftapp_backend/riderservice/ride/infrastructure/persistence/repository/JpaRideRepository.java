@@ -34,6 +34,18 @@ public interface JpaRideRepository extends JpaRepository<RideEntity,Long> {
     Optional<RideEntity> findFirstByDriverIdAndCurrentStatusInOrderByRequestedAtDesc(
             Long driverId, Collection<RideStatus> statuses);
 
+    @Query("""
+            select count(r) from RideModel r
+            where r.offer.id = :offerId
+              and (:riderId is null or r.riderId = :riderId)
+              and r.currentStatus not in (
+                com.swiftapp_backend.riderservice.ride.domain.enums.RideStatus.CANCELLED,
+                com.swiftapp_backend.riderservice.ride.domain.enums.RideStatus.MATCH_FAILED)
+            """)
+    long countOfferUses(@Param("offerId") Long offerId, @Param("riderId") Long riderId);
+
+    boolean existsByRiderIdAndCurrentStatus(Long riderId, RideStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from RideModel r where r.id = :rideId")
     Optional<RideEntity> findByIdForUpdate(@Param("rideId") Long rideId);

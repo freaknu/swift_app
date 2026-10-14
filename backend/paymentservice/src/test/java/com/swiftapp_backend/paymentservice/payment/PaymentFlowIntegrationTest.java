@@ -123,6 +123,23 @@ class PaymentFlowIntegrationTest {
         Payment p = service.createOrder(10L, 100L); service.handleRideComplete(event());
         assertEquals(12345, p.getAmount()); assertEquals(1, provider.creates.get());
     }
+    @Test void discountedCompletionChargesSavedNetFareInMinorUnits() throws Exception {
+        rides.totalFare = new BigDecimal("111.10");
+        var discounted = new RideCompletedEvent(10L, 20L, 30L, rides.totalFare, "INR", event().completedAt());
+        service.handleRideComplete(discounted);
+        Payment payment = service.getRidePayment(10L, 100L);
+        assertEquals(11110, payment.getAmount());
+        assertEquals(11110, mapper.readTree(outbox.findAll().getFirst().getPayload()).path("amount").asLong());
+        service.createOrder(10L, 100L);
+        assertEquals(1, provider.creates.get());
+    }
+    @Test void restRecoveryUsesSavedDiscountedFareAndAgreesWithLaterCompletion() {
+        rides.totalFare = new BigDecimal("111.10");
+        Payment payment = service.createOrder(10L, 100L);
+        service.handleRideComplete(new RideCompletedEvent(10L, 20L, 30L, rides.totalFare, "INR", event().completedAt()));
+        assertEquals(11110, payment.getAmount());
+        assertEquals(1, provider.creates.get());
+    }
     @Test void providerCrashAfterOrderCreationRecoversByDurableReceipt() {
         provider.crashAfterCreate = true;
         assertThrows(PaymentException.class, () -> service.handleRideComplete(event()));
@@ -329,10 +346,11 @@ class PaymentFlowIntegrationTest {
     }
     static class FakeRides implements RideLookupPort {
         boolean completed;
-        void reset() { completed = true; }
+        BigDecimal totalFare;
+        void reset() { completed = true; totalFare = new BigDecimal("123.45"); }
         @Override public CompletedRide getParticipantRide(Long id, Long authId) {
             if (!Set.of(100L, 200L).contains(authId)) throw new PaymentException(PaymentException.Kind.FORBIDDEN, "Not a participant");
-            return new CompletedRide(id, 20L, 30L, completed, new BigDecimal("123.45"), "INR", "2026-10-13T10:00:00Z");
+            return new CompletedRide(id, 20L, 30L, completed, totalFare, "INR", "2026-10-13T10:00:00Z");
         }
         @Override public Long riderIdForAuthUser(Long authId) { return authId == 100L ? 20L : 999L; }
     }

@@ -2,9 +2,9 @@
 
 ## Android APK
 
-[Download SwiftApp 1.0.1 APK](https://github.com/freaknu/swift_app/releases/download/v1.0.1/SwiftApp-1.0.1.apk) · [Release notes and checksum](https://github.com/freaknu/swift_app/releases/tag/v1.0.1)
+[Download SwiftApp 1.0.2 APK](https://github.com/freaknu/swift_app/releases/download/v1.0.2/SwiftApp-1.0.2.apk) · [Release notes and checksum](https://github.com/freaknu/swift_app/releases/tag/v1.0.2)
 
-Android 7.0/API 24 or newer. Version 1.0.1, build 2, using the existing Android Debug test signer. Connects to the hosted HTTPS/WSS backend.
+Android 7.0/API 24 or newer. Version 1.0.2, build 3, using the existing Android Debug test signer. Connects to the hosted HTTPS/WSS backend.
 
 [Watch the rider and driver demo](https://github.com/freaknu/swift_app/issues/1) · [Live API docs](https://swift-app.duckdns.org/swagger-ui.html) · [Architecture and event flows](docs/architecture/README.md)
 
@@ -48,6 +48,10 @@ flowchart LR
 ```
 
 Ride and payment outboxes persist events for retry. Trip completion initiates the payment workflow; success requires the provider's verified result. Unknown provider outcomes remain pending for reconciliation.
+
+## Ride offers
+
+The route preview opens a final fare and offers review before booking. The rider service validates the selected campaign, saves the discounted fare and passes that total into payment. See [the promotion contract and explicit seed](backend/riderservice/README.md#ride-offers).
 
 ## Checks
 

@@ -13,6 +13,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
@@ -118,7 +119,7 @@ public class RideEntity {
 
     private String cancellationReason;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "offer_id")
     private OfferEntity offer;
 

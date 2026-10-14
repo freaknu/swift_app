@@ -14,6 +14,7 @@ import 'package:swift_app/features/rider/home/domain/entity/offer_response.dart'
 import 'package:swift_app/features/rider/home/domain/entity/ride_type.dart';
 import 'package:swift_app/features/rider/home/presentation/blocs/offer_bloc.dart';
 import 'package:swift_app/features/rider/home/presentation/blocs/offer_event.dart';
+import 'package:swift_app/features/rider/home/presentation/blocs/offer_state.dart';
 import 'package:swift_app/features/rider/home/presentation/widgets/offer_section_widget.dart';
 import 'package:swift_app/features/rider/home/presentation/blocs/ride_type_bloc.dart';
 import 'package:swift_app/features/rider/home/presentation/blocs/ride_type_event.dart';
@@ -41,8 +42,13 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 /// so a rider never has to guess what happens after tapping a vehicle card.
 class RideOptionsPage extends StatefulWidget {
   final TripLocations trip;
+  final String? preferredRideTypeCode;
 
-  const RideOptionsPage({super.key, required this.trip});
+  const RideOptionsPage({
+    super.key,
+    required this.trip,
+    this.preferredRideTypeCode,
+  });
 
   @override
   State<RideOptionsPage> createState() => _RideOptionsPageState();
@@ -67,11 +73,16 @@ class _RideOptionsPageState extends State<RideOptionsPage> {
     final state = context.read<RideTypeBloc>().state;
     final rides = state.rideTypes.where((ride) => ride.active).toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    if (rides.isNotEmpty) _selectRideType(rides.first);
+    if (rides.isNotEmpty) {
+      final preferred = rides.where(
+        (ride) => ride.code == widget.preferredRideTypeCode,
+      );
+      _selectRideType(preferred.isNotEmpty ? preferred.first : rides.first);
+    }
   }
 
   void _selectRideType(RideType rideType) {
-    if (!mounted) return;
+    if (!mounted || context.read<RideBloc>().state.isLoading) return;
     setState(() {
       _selectedRideType = rideType;
       _selectedOffer = null;
@@ -90,23 +101,42 @@ class _RideOptionsPageState extends State<RideOptionsPage> {
   }
 
   void _selectOffer(OfferResponse offer) {
+    if (context.read<RideBloc>().state.isLoading || offer.id == null) return;
+    final available = context.read<OfferBloc>().state;
+    if (available.status != OfferStatus.success ||
+        available.lastRequest?.rideTypeCode != _selectedRideType?.code ||
+        !available.offers.any((item) => item.id == offer.id)) {
+      return;
+    }
+    if (_selectedOffer?.id == offer.id) {
+      _removeOffer();
+      return;
+    }
     setState(() => _selectedOffer = offer);
-    _estimateFare(offerId: offer.id);
+    _estimateFare();
   }
 
-  void _estimateFare({int? offerId}) {
-    context.read<FareBloc>().add(
-      EstimateFare(
-        request: FareEstimateRequestModel(
-          offerId: offerId,
-          pickupLatitude: _pickup.latitude,
-          pickupLongitude: _pickup.longitude,
-          destinationLatitude: _destination.latitude,
-          destinationLongitude: _destination.longitude,
-          rideType: _selectedRideType?.code,
-        ),
-      ),
-    );
+  void _removeOffer() {
+    if (context.read<RideBloc>().state.isLoading) return;
+    setState(() => _selectedOffer = null);
+    _estimateFare();
+  }
+
+  FareEstimateRequestModel get _currentFareRequest => FareEstimateRequestModel(
+    offerId: _selectedOffer?.id,
+    pickupLatitude: _pickup.latitude,
+    pickupLongitude: _pickup.longitude,
+    destinationLatitude: _destination.latitude,
+    destinationLongitude: _destination.longitude,
+    rideType: _selectedRideType?.code,
+  );
+
+  bool _hasCurrentQuote(FareState state) =>
+      state.isQuoteFor(_currentFareRequest) &&
+      (_selectedOffer == null || state.fareEstimate!.fare.discount > 0);
+
+  void _estimateFare() {
+    context.read<FareBloc>().add(EstimateFare(request: _currentFareRequest));
   }
 
   void _requestRide() {
@@ -116,7 +146,9 @@ class _RideOptionsPageState extends State<RideOptionsPage> {
     if (rideType == null ||
         rideType.code.isEmpty ||
         user == null ||
-        authUserId == null) {
+        authUserId == null ||
+        context.read<RideBloc>().state.isLoading ||
+        !_hasCurrentQuote(context.read<FareBloc>().state)) {
       return;
     }
 
@@ -145,13 +177,18 @@ class _RideOptionsPageState extends State<RideOptionsPage> {
     _openingStatus = true;
     final retry = await Navigator.of(context).push<bool>(
       CupertinoPageRoute(
-        builder: (_) => RideStatusPage(ride: ride, riderId: riderId),
+        builder: (_) => RideStatusPage(
+          ride: ride,
+          riderId: riderId,
+          pickupLabel: widget.trip.pickup.label,
+          destinationLabel: widget.trip.destination.label,
+        ),
       ),
     );
     if (!mounted) return;
     _openingStatus = false;
     context.read<RideBloc>().add(const ResetRide());
-    if (retry != true) Navigator.of(context).pop();
+    if (retry != true) Navigator.of(context).pop(true);
   }
 
   String _locationLabel(LocationSelection selection, String fallback) {
@@ -219,6 +256,16 @@ class _RideOptionsPageState extends State<RideOptionsPage> {
                   child: RideTypeSection(onRideTypeSelected: _selectRideType),
                 ),
                 SliverToBoxAdapter(child: const FareEstimateWidget()),
+                SliverToBoxAdapter(child: _offerSummary(context)),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                    child: Text(
+                      'Offers · Tap to apply',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  ),
+                ),
                 SliverToBoxAdapter(
                   child: OfferSection(
                     expanded: true,
@@ -375,7 +422,7 @@ class _RideOptionsPageState extends State<RideOptionsPage> {
             final canRequest =
                 _selectedRideType != null &&
                 userReady &&
-                fareState.status == FareStatus.success &&
+                _hasCurrentQuote(fareState) &&
                 !rideState.isLoading;
             final label = rideState.isLoading
                 ? 'Requesting ride…'
@@ -387,6 +434,11 @@ class _RideOptionsPageState extends State<RideOptionsPage> {
                 ? 'Retry fare estimate'
                 : fareState.status == FareStatus.initial
                 ? 'Calculating fare…'
+                : !_hasCurrentQuote(fareState)
+                ? _selectedOffer != null &&
+                          fareState.isQuoteFor(_currentFareRequest)
+                      ? 'Remove unavailable offer'
+                      : 'Calculating fare…'
                 : 'Request ${_selectedRideType!.name}';
 
             return ConstrainedBox(
@@ -400,7 +452,7 @@ class _RideOptionsPageState extends State<RideOptionsPage> {
                     fareState.status == FareStatus.failure &&
                         _selectedRideType != null &&
                         !rideState.isLoading
-                    ? () => _estimateFare(offerId: _selectedOffer?.id)
+                    ? _estimateFare
                     : canRequest
                     ? _requestRide
                     : null,
@@ -410,6 +462,53 @@ class _RideOptionsPageState extends State<RideOptionsPage> {
           },
         ),
       ),
+    );
+  }
+
+  Widget _offerSummary(BuildContext context) {
+    final offer = _selectedOffer;
+    if (offer == null) return const SizedBox.shrink();
+    return BlocBuilder2<FareBloc, FareState, RideBloc, RideState>(
+      builder: (context, fareState, rideState) {
+        final confirmed = _hasCurrentQuote(fareState);
+        final rejected =
+            fareState.status == FareStatus.failure ||
+            (fareState.isQuoteFor(_currentFareRequest) && !confirmed);
+        final message = confirmed
+            ? 'You save ₹${fareState.fareEstimate!.fare.discount.toStringAsFixed(2)}'
+            : rejected
+            ? 'This offer could not be applied. Remove it or choose another.'
+            : 'Checking this offer against your fare…';
+        final theme = Theme.of(context);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: GlassSurface(
+            padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+            borderRadius: AppRadii.cardRadius,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${offer.offerCode ?? 'Offer'} ${confirmed ? 'applied' : 'selected'}',
+                        style: theme.textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(message, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: rideState.isLoading ? null : _removeOffer,
+                  child: const Text('Remove'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

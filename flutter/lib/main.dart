@@ -370,13 +370,7 @@ class MainPageWithProviders extends StatelessWidget {
         BlocProvider<OfferBloc>(
           create: (_) => sl<OfferBloc>()
             ..add(
-              FetchOffers(
-                request: OfferRequest(
-                  rideTypeCode: 'BIKE',
-
-                  startFrom: DateTime.now(),
-                ),
-              ),
+              FetchOffers(request: OfferRequest(startFrom: DateTime.now())),
             ),
         ),
 

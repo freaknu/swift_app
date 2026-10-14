@@ -1,6 +1,25 @@
 import 'package:swift_app/features/rider/home/domain/entity/offer_response.dart';
 
 class OfferResponseModel extends OfferResponse {
+  // Offer timestamps are emitted as UTC LocalDateTime by the backend. Dart
+  // otherwise interprets a timestamp without an offset as device-local time.
+  static DateTime? _utcDate(dynamic value) {
+    if (value is! String) return null;
+    final date = DateTime.tryParse(value);
+    if (date == null) return null;
+    if (date.isUtc) return date;
+    return DateTime.utc(
+      date.year,
+      date.month,
+      date.day,
+      date.hour,
+      date.minute,
+      date.second,
+      date.millisecond,
+      date.microsecond,
+    );
+  }
+
   OfferResponseModel({
     super.id,
     super.offerCode,
@@ -32,12 +51,8 @@ class OfferResponseModel extends OfferResponse {
       discountValue: (json['discountValue'] as num?)?.toDouble(),
       maximumDiscount: (json['maximumDiscount'] as num?)?.toDouble(),
       minimumFare: (json['minimumFare'] as num?)?.toDouble(),
-      validFrom: json['validFrom'] != null
-          ? DateTime.tryParse(json['validFrom'] as String)
-          : null,
-      validUntil: json['validUntil'] != null
-          ? DateTime.tryParse(json['validUntil'] as String)
-          : null,
+      validFrom: _utcDate(json['validFrom']),
+      validUntil: _utcDate(json['validUntil']),
       active: json['active'] as bool?,
       usageLimit: json['usageLimit'] as int?,
       perUserLimit: json['perUserLimit'] as int?,
