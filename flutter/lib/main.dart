@@ -7,6 +7,7 @@ import 'package:swift_app/core/notifications/push_notification_service.dart';
 import 'package:swift_app/core/notifications/chat_push_destination.dart';
 
 import 'package:swift_app/features/common/authentication/auth/presentation/bloc/auth_bloc.dart';
+import 'package:swift_app/features/common/authentication/auth/data/datasource/auth_home_ready_datasource.dart';
 import 'package:swift_app/features/common/authentication/auth/presentation/bloc/auth_event.dart';
 import 'package:swift_app/features/common/authentication/auth/presentation/bloc/auth_state.dart';
 
@@ -320,6 +321,7 @@ class _RoleHomePageState extends State<RoleHomePage> {
 
         if (role == 'DRIVER') {
           return DriverHomePage(
+            onHomeReady: sl<AuthHomeReadyDatasource>().acknowledge,
             datasource: sl<DriverRemoteDatasource>(),
             realtimeService: sl<DriverRealtimeService>(),
             locationPublisher: sl<DriverLocationPublisher>(),
@@ -328,7 +330,9 @@ class _RoleHomePageState extends State<RoleHomePage> {
           );
         }
 
-        return const MainPageWithProviders();
+        return MainPageWithProviders(
+          onHomeReady: sl<AuthHomeReadyDatasource>().acknowledge,
+        );
       },
     );
   }
@@ -343,7 +347,9 @@ bool _isChatPush(Map<String, dynamic> data) {
 }
 
 class MainPageWithProviders extends StatelessWidget {
-  const MainPageWithProviders({super.key});
+  const MainPageWithProviders({super.key, this.onHomeReady});
+
+  final Future<bool> Function()? onHomeReady;
 
   @override
   Widget build(BuildContext context) {
@@ -379,7 +385,7 @@ class MainPageWithProviders extends StatelessWidget {
         BlocProvider<RideBloc>(create: (_) => sl<RideBloc>()),
       ],
 
-      child: const MainPage(),
+      child: MainPage(onHomeReady: onHomeReady),
     );
   }
 }

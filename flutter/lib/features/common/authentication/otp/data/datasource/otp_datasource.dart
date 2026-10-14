@@ -63,7 +63,7 @@ class OtpDatasource {
       final responseData = response.data;
 
       if (responseData is Map<String, dynamic>) {
-        return ApiResponseFormat<bool>.fromJson(
+        final parsed = ApiResponseFormat<bool>.fromJson(
           json: responseData,
           httpStatusCode: response.statusCode ?? 500,
           endpoint: endpoint,
@@ -71,6 +71,17 @@ class OtpDatasource {
           defaultFailureMessage: 'OTP verification failed',
           fromData: _asBool,
         );
+        if (parsed.success && parsed.data != true) {
+          // Older servers returned a success message even for data:false.
+          // Verification must rely on the boolean, never that message.
+          return ApiResponseFormat<bool>.failure(
+            statusCode: 400,
+            message:
+                'Invalid verification code. Please check it and try again.',
+            endpoint: parsed.endpoint,
+          );
+        }
+        return parsed;
       }
 
       return ApiResponseFormat<bool>.failure(

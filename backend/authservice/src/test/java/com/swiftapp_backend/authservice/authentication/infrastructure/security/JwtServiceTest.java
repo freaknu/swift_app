@@ -13,6 +13,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class JwtServiceTest {
     private static final String SECRET = Base64.getEncoder().encodeToString(
@@ -48,5 +49,14 @@ class JwtServiceTest {
     void refusesToIssueTokenWithoutPersistedUserId() {
         assertThrows(IllegalArgumentException.class,
                 () -> service.generateAccessToken("driver@example.com", null));
+    }
+
+    @Test
+    void rapidLoginsForSameUserHaveDifferentAccessAndRefreshSessionTokens() {
+        String first = service.generateAccessToken("driver@example.com", 42L);
+        String second = service.generateAccessToken("driver@example.com", 42L);
+        assertNotEquals(first, second);
+        assertNotEquals(service.generateRefreshToken("driver@example.com", 42L),
+                service.generateRefreshToken("driver@example.com", 42L));
     }
 }

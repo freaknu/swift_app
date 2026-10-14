@@ -1,5 +1,7 @@
 # Swift backend
 
+OTP verification retains the code until the authenticated app acknowledges a loaded home screen, or the existing 60-second expiry. See [the auth handoff contract](authservice/README.md) for request/response, retries and upgrade details.
+
 [Watch the rider and driver demo](https://github.com/freaknu/swift_app/issues/1) · [Live API docs](https://swift-app.duckdns.org/swagger-ui.html)
 
 [![SwiftApp demo](../docs/demo/swift-app-demo-poster.png)](https://github.com/freaknu/swift_app/issues/1)

@@ -210,8 +210,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
 
     if (!_isOk(loginResponse)) {
+      final message = loginResponse.message;
       emit(
-        AuthFailure(message: loginResponse.message, action: AuthAction.login),
+        AuthFailure(
+          message:
+              loginResponse.statusCode >= 500 &&
+                  !message.toLowerCase().contains('new code')
+              ? '$message Request a new code to continue.'
+              : message,
+          action: AuthAction.login,
+        ),
       );
       return;
     }

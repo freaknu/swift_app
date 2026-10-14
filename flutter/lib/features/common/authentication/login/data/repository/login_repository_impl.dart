@@ -30,8 +30,27 @@ class LoginRepositoryImpl implements LoginRepository {
       );
     }
 
-    final loginResponse = response.data!;
-    await authLocalDatasource.saveAuthUser(loginResponse);
+    final loginResponse = response.data;
+    if (loginResponse == null ||
+        loginResponse.userId <= 0 ||
+        loginResponse.accessToken.isEmpty ||
+        loginResponse.refreshToken.isEmpty) {
+      return ApiResponseFormat<SignupResponse>.failure(
+        statusCode: 502,
+        message:
+            'Sign-in could not be completed. Request a new code to continue.',
+        endpoint: response.endpoint,
+      );
+    }
+    try {
+      await authLocalDatasource.saveAuthUser(loginResponse);
+    } catch (_) {
+      return ApiResponseFormat<SignupResponse>.failure(
+        statusCode: 500,
+        message: 'Could not save your sign-in. Request a new code to continue.',
+        endpoint: response.endpoint,
+      );
+    }
 
     return ApiResponseFormat<SignupResponse>.success(
       data: loginResponse,

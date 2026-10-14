@@ -12,6 +12,7 @@ class SignupResponseModel extends SignupResponse {
     required super.refreshToken,
     required super.role,
     required super.active,
+    super.otpCompletionToken,
   });
 
   factory SignupResponseModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +27,7 @@ class SignupResponseModel extends SignupResponse {
       refreshToken: json['refreshToken']?.toString() ?? '',
       role: json['role']?.toString() ?? '',
       active: _asBool(json['active'] ?? json['isActive']),
+      otpCompletionToken: json['otpCompletionToken']?.toString(),
     );
   }
 
@@ -41,6 +43,7 @@ class SignupResponseModel extends SignupResponse {
       'refreshToken': refreshToken,
       'role': role,
       'active': active,
+      if (otpCompletionToken != null) 'otpCompletionToken': otpCompletionToken,
     };
   }
 

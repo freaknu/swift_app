@@ -8,6 +8,7 @@ class RiderApiEndpoints {
   final String appleLoginEndpoint = "api/v1/auth/apple";
   final String refreshTokenEndpoint = "api/v1/auth/refresh-token";
   final String logoutEndpoint = "api/v1/auth/logout";
+  final String homeReadyEndpoint = "api/v1/auth/home-ready";
   final String validateTokenEndpoint = "api/v1/auth/validate-token";
   final String passwordResetRequestEndpoint =
       "api/v1/auth/password-reset/request";

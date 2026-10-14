@@ -35,8 +35,27 @@ class SignupRepositoryImpl implements SignupRepository {
       );
     }
 
-    final signupResponse = response.data!;
-    await authLocalDatasource.saveAuthUser(signupResponse);
+    final signupResponse = response.data;
+    if (signupResponse == null ||
+        signupResponse.userId <= 0 ||
+        signupResponse.accessToken.isEmpty ||
+        signupResponse.refreshToken.isEmpty) {
+      return ApiResponseFormat<SignupResponse>.failure(
+        statusCode: 502,
+        message:
+            'Account sign-in could not be completed. Please sign in again.',
+        endpoint: response.endpoint,
+      );
+    }
+    try {
+      await authLocalDatasource.saveAuthUser(signupResponse);
+    } catch (_) {
+      return ApiResponseFormat<SignupResponse>.failure(
+        statusCode: 500,
+        message: 'Could not save your account session. Please sign in again.',
+        endpoint: response.endpoint,
+      );
+    }
 
     return ApiResponseFormat.success(
       data: signupResponse,

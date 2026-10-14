@@ -1,6 +1,7 @@
 import 'package:swift_app/features/common/authentication/auth/presentation/bloc/auth_bloc.dart';
 import 'package:swift_app/features/common/authentication/auth/presentation/bloc/auth_event.dart';
 import 'package:swift_app/features/common/authentication/auth/presentation/bloc/auth_state.dart';
+import 'package:swift_app/features/common/authentication/auth/presentation/widgets/auth_home_ready_reporter.dart';
 import 'package:swift_app/features/common/shared/widgets/glass_ui.dart';
 import 'package:swift_app/features/common/shared/widgets/app_icon.dart';
 import 'package:swift_app/features/common/shared/widgets/app_shimmer.dart';
@@ -37,7 +38,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 
 class MainPage extends StatefulWidget {
-  const MainPage({super.key});
+  const MainPage({super.key, this.onHomeReady});
+
+  final Future<bool> Function()? onHomeReady;
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -135,98 +138,105 @@ class _MainPageState extends State<MainPage> {
       listenWhen: (previous, current) =>
           previous is! AuthUnauthenticated && current is AuthUnauthenticated,
       listener: (context, state) => Get.offAll(() => const WelcomePage()),
-      child: AppStartupGate(
-        ready: ready,
-        child: Scaffold(
-          extendBody: true,
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          appBar: _currentIndex == 0
-              ? null
-              : SwiftAppBar(
-                  toolbarHeight: SwiftAppBar.toolbarHeightFor(
-                    context,
-                    hasSubtitle: true,
-                  ),
-                  title: Text(switch (_currentIndex) {
-                    1 => 'Saved',
-                    2 => 'Activity',
-                    3 => 'Offers',
-                    _ => 'Account',
-                  }),
-                  subtitle: switch (_currentIndex) {
-                    1 => 'Places you can reach in a tap',
-                    2 => 'Your journeys, in one place',
-                    3 => 'A little extra for your next ride',
-                    _ => 'Profile and preferences',
-                  },
-                  automaticallyImplyLeading: false,
-                  actions: [
-                    IconButton(
-                      icon: const AppIcon(SwiftIcons.refreshCw, size: 20),
-                      onPressed: _refreshCurrentTab,
-                      tooltip: 'Refresh',
+      child: AuthHomeReadyReporter(
+        ready: ready && !criticalFailure && user.user != null,
+        onReady: widget.onHomeReady,
+        child: AppStartupGate(
+          ready: ready,
+          child: Scaffold(
+            extendBody: true,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            appBar: _currentIndex == 0
+                ? null
+                : SwiftAppBar(
+                    toolbarHeight: SwiftAppBar.toolbarHeightFor(
+                      context,
+                      hasSubtitle: true,
                     ),
-                  ],
+                    title: Text(switch (_currentIndex) {
+                      1 => 'Saved',
+                      2 => 'Activity',
+                      3 => 'Offers',
+                      _ => 'Account',
+                    }),
+                    subtitle: switch (_currentIndex) {
+                      1 => 'Places you can reach in a tap',
+                      2 => 'Your journeys, in one place',
+                      3 => 'A little extra for your next ride',
+                      _ => 'Profile and preferences',
+                    },
+                    automaticallyImplyLeading: false,
+                    actions: [
+                      IconButton(
+                        icon: const AppIcon(SwiftIcons.refreshCw, size: 20),
+                        onPressed: _refreshCurrentTab,
+                        tooltip: 'Refresh',
+                      ),
+                    ],
+                  ),
+            body: LazyTabStack(
+              index: _currentIndex,
+              builders: [
+                (_) => HomePage(
+                  onAccountTap: () => setState(() => _currentIndex = 4),
+                  onInitialMapSettled: _onInitialMapSettled,
+                  onInitialRideCheckSettled: _onInitialRideCheckSettled,
                 ),
-          body: LazyTabStack(
-            index: _currentIndex,
-            builders: [
-              (_) => HomePage(
-                onAccountTap: () => setState(() => _currentIndex = 4),
-                onInitialMapSettled: _onInitialMapSettled,
-                onInitialRideCheckSettled: _onInitialRideCheckSettled,
-              ),
-              (_) => _CollectionPage(
-                title: 'Saved',
-                childIsSliver: true,
-                child: SavedAddressSection(
-                  expanded: true,
-                  asSliver: true,
-                  onAddressSelected: _bookSavedPlace,
+                (_) => _CollectionPage(
+                  title: 'Saved',
+                  childIsSliver: true,
+                  child: SavedAddressSection(
+                    expanded: true,
+                    asSliver: true,
+                    onAddressSelected: _bookSavedPlace,
+                  ),
                 ),
-              ),
-              (_) => RiderActivityPage(key: _activityKey),
-              (_) => _CollectionPage(
-                title: 'Offers',
-                childIsSliver: true,
-                child: const OfferSection(
-                  expanded: true,
-                  browseCategories: true,
-                  asSliver: true,
+                (_) => RiderActivityPage(key: _activityKey),
+                (_) => _CollectionPage(
+                  title: 'Offers',
+                  childIsSliver: true,
+                  child: const OfferSection(
+                    expanded: true,
+                    browseCategories: true,
+                    asSliver: true,
+                  ),
                 ),
-              ),
-              (_) => _AccountPage(
-                onSaved: () => setState(() => _currentIndex = 1),
-              ),
-            ],
-          ),
-          bottomNavigationBar: SwiftBottomNavigationBar(
-            selectedIndex: _currentIndex,
-            onDestinationSelected: (index) {
-              if (_currentIndex == index) return;
-              HapticFeedback.selectionClick();
-              FocusManager.instance.primaryFocus?.unfocus();
-              setState(() => _currentIndex = index);
-            },
-            destinations: const [
-              SwiftNavigationDestination(
-                icon: SwiftIcons.navigation,
-                label: 'Ride',
-              ),
-              SwiftNavigationDestination(
-                icon: SwiftIcons.bookmark,
-                label: 'Saved',
-              ),
-              SwiftNavigationDestination(
-                icon: SwiftIcons.clock3,
-                label: 'Activity',
-              ),
-              SwiftNavigationDestination(icon: SwiftIcons.tag, label: 'Offers'),
-              SwiftNavigationDestination(
-                icon: SwiftIcons.userRound,
-                label: 'Account',
-              ),
-            ],
+                (_) => _AccountPage(
+                  onSaved: () => setState(() => _currentIndex = 1),
+                ),
+              ],
+            ),
+            bottomNavigationBar: SwiftBottomNavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) {
+                if (_currentIndex == index) return;
+                HapticFeedback.selectionClick();
+                FocusManager.instance.primaryFocus?.unfocus();
+                setState(() => _currentIndex = index);
+              },
+              destinations: const [
+                SwiftNavigationDestination(
+                  icon: SwiftIcons.navigation,
+                  label: 'Ride',
+                ),
+                SwiftNavigationDestination(
+                  icon: SwiftIcons.bookmark,
+                  label: 'Saved',
+                ),
+                SwiftNavigationDestination(
+                  icon: SwiftIcons.clock3,
+                  label: 'Activity',
+                ),
+                SwiftNavigationDestination(
+                  icon: SwiftIcons.tag,
+                  label: 'Offers',
+                ),
+                SwiftNavigationDestination(
+                  icon: SwiftIcons.userRound,
+                  label: 'Account',
+                ),
+              ],
+            ),
           ),
         ),
       ),

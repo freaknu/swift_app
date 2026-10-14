@@ -12,6 +12,7 @@ class AuthLocalDatasource {
   static const String _refreshTokenKey = 'auth.refreshToken';
   static const String _roleKey = 'auth.role';
   static const String _activeKey = 'auth.active';
+  static const String _otpCompletionTokenKey = 'auth.otpCompletionToken';
 
   final SharedPreferences _preferences;
 
@@ -23,6 +24,16 @@ class AuthLocalDatasource {
 
   String? get refreshToken {
     return _preferences.getString(_refreshTokenKey);
+  }
+
+  String? get otpCompletionToken =>
+      _preferences.getString(_otpCompletionTokenKey);
+
+  Future<void> completeOtpLogin(String token) async {
+    // A late response from an earlier sign-in must preserve the newer challenge.
+    if (otpCompletionToken == token) {
+      await _preferences.remove(_otpCompletionTokenKey);
+    }
   }
 
   bool get isAuthenticated {
@@ -85,11 +96,12 @@ class AuthLocalDatasource {
       refreshToken: savedRefreshToken,
       role: role ?? '',
       active: active,
+      otpCompletionToken: otpCompletionToken,
     );
   }
 
   Future<void> saveAuthUser(SignupResponse user) async {
-    await Future.wait([
+    final saved = await Future.wait([
       _preferences.setInt(_userIdKey, user.userId),
 
       _preferences.setString(_nameKey, user.name),
@@ -102,14 +114,21 @@ class AuthLocalDatasource {
 
       _preferences.setInt(_pinCodeKey, user.pinCode),
 
-      _preferences.setString(_accessTokenKey, user.accessToken),
-
       _preferences.setString(_refreshTokenKey, user.refreshToken),
 
       _preferences.setString(_roleKey, user.role),
 
       _preferences.setBool(_activeKey, user.active),
+
+      if (user.otpCompletionToken?.isNotEmpty == true)
+        _preferences.setString(_otpCompletionTokenKey, user.otpCompletionToken!)
+      else
+        _preferences.remove(_otpCompletionTokenKey),
     ]);
+    if (saved.any((success) => !success) ||
+        !await _preferences.setString(_accessTokenKey, user.accessToken)) {
+      throw StateError('Session persistence failed');
+    }
   }
 
   Future<void> clear() async {
@@ -124,6 +143,7 @@ class AuthLocalDatasource {
       _preferences.remove(_refreshTokenKey),
       _preferences.remove(_roleKey),
       _preferences.remove(_activeKey),
+      _preferences.remove(_otpCompletionTokenKey),
     ]);
   }
 }

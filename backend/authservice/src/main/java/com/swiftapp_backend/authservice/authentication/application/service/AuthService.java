@@ -21,13 +21,21 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import ua_parser.Client;
 import ua_parser.Parser;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -44,7 +52,7 @@ public class AuthService {
 
         int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
 
-        log.info("Generated OTP for {} : {}", email, otp);
+        log.info("Generated OTP for {}", email);
 
         String redisKey = "userOtp:" + email;
 
@@ -165,16 +173,7 @@ public class AuthService {
     }
 
     public boolean isCorrectOtp(String email,int otp) throws Exception {
-        String key = "userOtp:" + email;
-
-        // if otp is not present for the user
-        int existingOtp = otpStore.find(key)
-                .orElseThrow(() -> new Exception("Otp is Not Present"));
-
-        // cleared from redis
-        otpStore.delete(key);
-
-        return otp == existingOtp;
+        return otpStore.verify("userOtp:" + email, otp);
     }
 
     @Transactional
@@ -187,6 +186,7 @@ public class AuthService {
                 appUser.setActive(true);
                 userRepository.save(appUser);
             }
+            return otpStore.consume("userOtp:" + email, otp);
         }
         return valid;
     }
@@ -200,6 +200,10 @@ public class AuthService {
         if(existingUser.isPresent()) {
             throw new UserAlreadyFoundException("User Already Exists");
         }
+
+        String otpCompletionToken = UUID.randomUUID().toString();
+        // Signup has no OTP field: require the server-side verification performed immediately before it.
+        // The access-token binding is installed below before returning any credentials.
 
         // if user is not present in db ->
         AppUser newUser = AppUser
@@ -219,18 +223,10 @@ public class AuthService {
                 .name(savedUser.getName())
                 .build();
 
-        // this will be published to the rider service when any driver created
-        if(savedUser.getRole().equals(AppUserRoles.RIDER)) {
-            eventPublisher.publish("user-created-topic", "user" + savedUser.getId(), kafkaUserData);
-        }
-
-        // this will be published to the driver service when any driver created
-        else if(savedUser.getRole().equals(AppUserRoles.DRIVER)) {
-            eventPublisher.publish("driver-created-topic","driver"+savedUser.getId(),kafkaUserData);
-        }
         // generating the token
         String accessToken = tokenProvider.generateAccessToken(savedUser.getEmail(), savedUser.getId());
         String refreshToken = tokenProvider.generateRefreshToken(savedUser.getEmail(), savedUser.getId());
+        claimOtp(email, null, otpCompletionToken, accessToken);
 
         // accessing the device info
         String userAgent = req != null ? req.getHeader("User-Agent") : "";
@@ -261,6 +257,12 @@ public class AuthService {
 
         userCredentialRepository.save(userCredentials);
 
+        if(savedUser.getRole().equals(AppUserRoles.RIDER)) {
+            eventPublisher.publish("user-created-topic", "user" + savedUser.getId(), kafkaUserData);
+        } else if(savedUser.getRole().equals(AppUserRoles.DRIVER)) {
+            eventPublisher.publish("driver-created-topic", "driver" + savedUser.getId(), kafkaUserData);
+        }
+
         return UserAuthResponseDto
                 .builder()
                 .userId(savedUser.getId())
@@ -272,6 +274,7 @@ public class AuthService {
                 .accountLocked(false)
                 .isActive(true)
                 .role(savedUser.getRole())
+                .otpCompletionToken(otpCompletionToken)
                 .build();
 
     }
@@ -286,10 +289,13 @@ public class AuthService {
             throw new UserNotFoundException("User Not found Please SignUp");
         }
 
+        String otpCompletionToken = UUID.randomUUID().toString();
+
         // if user is present generating the token
         AppUser savedUser = existingUser.get();
         String accessToken = tokenProvider.generateAccessToken(savedUser.getEmail(), savedUser.getId());
         String refreshToken = tokenProvider.generateRefreshToken(savedUser.getEmail(), savedUser.getId());
+        claimOtp(email, data.getOtp(), otpCompletionToken, accessToken);
 
         // accessing the device info
         String userAgent = req != null ? req.getHeader("User-Agent") : "";
@@ -345,6 +351,7 @@ public class AuthService {
                 .accountLocked(false)
                 .isActive(true)
                 .role(savedUser.getRole())
+                .otpCompletionToken(otpCompletionToken)
                 .build();
     }
 
@@ -492,12 +499,59 @@ public class AuthService {
 
     @Transactional
     public void confirmPasswordReset(PasswordResetConfirmDto data) throws Exception {
-        boolean valid = isCorrectOtp(data.getEmail(), data.getOtp());
+        boolean valid = otpStore.consume("userOtp:" + data.getEmail(), data.getOtp());
         if (!valid) {
             throw new IllegalArgumentException("Invalid OTP for password reset");
         }
         // In this OTP-based auth model, verifying OTP confirms password/access
         log.info("Password reset verified successfully for {}", data.getEmail());
+    }
+
+    private void claimOtp(String email, Integer otp, String completionToken, String accessToken) {
+        String key = "userOtp:" + email;
+        String hash = sessionHash(accessToken);
+        if (!otpStore.claimVerified(key, otp, completionToken, hash)) {
+            throw new BadCredentialsException("OTP is invalid, expired, or already used. Request a new OTP.");
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status != STATUS_COMMITTED) {
+                        otpStore.release(key, completionToken, hash);
+                    }
+                }
+            });
+        }
+    }
+
+    /** Called only after the app has mounted its role home screen. It is safe to retry. */
+    public void acknowledgeHomeReady(String accessToken, String completionToken) {
+        if (accessToken == null || accessToken.isBlank() || !tokenProvider.validateToken(accessToken)) {
+            throw new BadCredentialsException("A valid access token is required");
+        }
+        String email = tokenProvider.extractUsername(accessToken);
+        AppUser user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BadCredentialsException("Invalid user session"));
+        UserCredentials session = userCredentialRepository.findByAccessToken(accessToken)
+                .orElseThrow(() -> new BadCredentialsException("Invalid access session"));
+        if (session.isLoggedOut() || !user.getId().equals(session.getUserId())
+                || user.isAccountLocked() || !user.isActive()) {
+            throw new BadCredentialsException("Invalid access session");
+        }
+        if (completionToken == null || completionToken.isBlank() || completionToken.length() > 128) {
+            throw new IllegalArgumentException("OTP completion token is required");
+        }
+        otpStore.complete("userOtp:" + email, completionToken, sessionHash(accessToken));
+    }
+
+    private static String sessionHash(String accessToken) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(accessToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
     }
 
     @Transactional

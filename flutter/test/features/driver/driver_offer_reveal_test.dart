@@ -193,7 +193,10 @@ class _AuthBloc extends Cubit<AuthState> implements AuthBloc {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-Future<_OfferDatasource> _pumpLoadingDriverHome(WidgetTester tester) async {
+Future<_OfferDatasource> _pumpLoadingDriverHome(
+  WidgetTester tester, {
+  Future<bool> Function()? onHomeReady,
+}) async {
   tester.view.physicalSize = const Size(411, 923);
   tester.view.devicePixelRatio = 1;
   tester.view.padding = FakeViewPadding(top: 47, bottom: 34);
@@ -226,6 +229,7 @@ Future<_OfferDatasource> _pumpLoadingDriverHome(WidgetTester tester) async {
       value: authBloc,
       child: MaterialApp(
         home: DriverHomePage(
+          onHomeReady: onHomeReady,
           datasource: datasource,
           realtimeService: realtime,
           locationPublisher: location,
@@ -380,18 +384,28 @@ void main() {
   testWidgets(
     'driver startup page covers the whole app until initial loading settles',
     (tester) async {
-      final datasource = await _pumpLoadingDriverHome(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      var acknowledgements = 0;
+      final datasource = await _pumpLoadingDriverHome(
+        tester,
+        onHomeReady: () async {
+          acknowledgements++;
+          return true;
+        },
+      );
       expect(_startupLoader, findsOneWidget);
       expect(find.text('Loading your data and map…'), findsOneWidget);
       expect(tester.getSize(_startupLoader), const Size(411, 923));
       expect(find.text('You’re offline'), findsNothing);
       expect(tester.takeException(), isNull);
+      expect(acknowledgements, 0);
 
       datasource.pendingProfile!.complete(_ok(_driverProfile));
       datasource.pendingProfile = null;
       await _pumpFrames(tester);
 
       expect(_startupLoader, findsNothing);
+      expect(acknowledgements, 1);
       expect(find.text('You’re online'), findsOneWidget);
       expect(
         tester
@@ -431,7 +445,15 @@ void main() {
   testWidgets(
     'driver backend failure exposes retry without reopening startup',
     (tester) async {
-      final datasource = await _pumpLoadingDriverHome(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      var acknowledgements = 0;
+      final datasource = await _pumpLoadingDriverHome(
+        tester,
+        onHomeReady: () async {
+          acknowledgements++;
+          return true;
+        },
+      );
       expect(_startupLoader, findsOneWidget);
 
       datasource.pendingProfile!.complete(
@@ -445,6 +467,7 @@ void main() {
       expect(_startupLoader, findsNothing);
       expect(find.text('Driver profile unavailable'), findsOneWidget);
       expect(find.text('The driver service is unavailable.'), findsOneWidget);
+      expect(acknowledgements, 0);
 
       datasource.pendingProfile =
           Completer<ApiResponseFormat<DriverProfileModel>>();
@@ -459,6 +482,7 @@ void main() {
       await _pumpFrames(tester);
       expect(_startupLoader, findsNothing);
       expect(find.text('You’re online'), findsOneWidget);
+      expect(acknowledgements, 1);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

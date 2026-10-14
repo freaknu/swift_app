@@ -18,6 +18,7 @@ import 'package:swift_app/features/common/shared/widgets/app_icon.dart';
 import 'package:swift_app/features/common/shared/widgets/swift_bottom_navigation_bar.dart';
 import 'package:swift_app/features/common/shared/widgets/lazy_tab_stack.dart';
 import 'package:swift_app/features/common/shared/widgets/app_loading_page.dart';
+import 'package:swift_app/features/common/authentication/auth/presentation/widgets/auth_home_ready_reporter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,6 +41,7 @@ class DriverHomePage extends StatefulWidget {
   final DriverLocationPublisher locationPublisher;
   final ChatRemoteDatasource? chatDatasource;
   final ChatRealtimeService? chatRealtime;
+  final Future<bool> Function()? onHomeReady;
 
   const DriverHomePage({
     super.key,
@@ -48,6 +50,7 @@ class DriverHomePage extends StatefulWidget {
     required this.locationPublisher,
     this.chatDatasource,
     this.chatRealtime,
+    this.onHomeReady,
   });
 
   @override
@@ -339,208 +342,216 @@ class _DriverHomePageState extends State<DriverHomePage>
 
   @override
   Widget build(BuildContext context) {
-    return AppStartupGate(
-      ready: _dashboard.startupComplete,
-      child: Scaffold(
-        extendBody: true,
-        bottomNavigationBar: SwiftBottomNavigationBar(
-          key: _navigationKey,
-          selectedIndex: _selectedTab,
-          onDestinationSelected: (index) {
-            if (index == _selectedTab) return;
-            HapticFeedback.selectionClick();
-            FocusManager.instance.primaryFocus?.unfocus();
-            setState(() => _selectedTab = index);
-            if (index == 1 && _dashboard.profile?.driverId != null) {
-              unawaited(
-                _dashboard.loadStatistics(_dashboard.profile!.driverId!),
-              );
-            }
-          },
-          destinations: const [
-            SwiftNavigationDestination(icon: SwiftIcons.car, label: 'Drive'),
-            SwiftNavigationDestination(
-              icon: SwiftIcons.receiptText,
-              label: 'Trips',
-            ),
-            SwiftNavigationDestination(
-              icon: SwiftIcons.userRound,
-              label: 'Account',
-            ),
-          ],
-        ),
-        body: AppGlassBackground(
-          child: SafeArea(
-            bottom: false,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 700),
-                child: LazyTabStack(
-                  index: _selectedTab,
-                  builders: [
-                    (_) => CustomScrollView(
-                      cacheExtent: _dashboard.startupComplete ? null : 10000,
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      controller: _scrollController,
-                      physics: const BouncingScrollPhysics(
-                        parent: AlwaysScrollableScrollPhysics(),
-                      ),
-                      slivers: [
-                        CupertinoSliverRefreshControl(
-                          onRefresh: _dashboard.loadDriver,
+    return AuthHomeReadyReporter(
+      ready: _dashboard.homeReady,
+      onReady: widget.onHomeReady,
+      child: AppStartupGate(
+        ready: _dashboard.startupComplete,
+        child: Scaffold(
+          extendBody: true,
+          bottomNavigationBar: SwiftBottomNavigationBar(
+            key: _navigationKey,
+            selectedIndex: _selectedTab,
+            onDestinationSelected: (index) {
+              if (index == _selectedTab) return;
+              HapticFeedback.selectionClick();
+              FocusManager.instance.primaryFocus?.unfocus();
+              setState(() => _selectedTab = index);
+              if (index == 1 && _dashboard.profile?.driverId != null) {
+                unawaited(
+                  _dashboard.loadStatistics(_dashboard.profile!.driverId!),
+                );
+              }
+            },
+            destinations: const [
+              SwiftNavigationDestination(icon: SwiftIcons.car, label: 'Drive'),
+              SwiftNavigationDestination(
+                icon: SwiftIcons.receiptText,
+                label: 'Trips',
+              ),
+              SwiftNavigationDestination(
+                icon: SwiftIcons.userRound,
+                label: 'Account',
+              ),
+            ],
+          ),
+          body: AppGlassBackground(
+            child: SafeArea(
+              bottom: false,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 700),
+                  child: LazyTabStack(
+                    index: _selectedTab,
+                    builders: [
+                      (_) => CustomScrollView(
+                        cacheExtent: _dashboard.startupComplete ? null : 10000,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        controller: _scrollController,
+                        physics: const BouncingScrollPhysics(
+                          parent: AlwaysScrollableScrollPhysics(),
                         ),
-                        SliverToBoxAdapter(
-                          child: DriverDashboardHeader(
-                            profile: _dashboard.profile,
-                            vehicle: _dashboard.vehicles.isEmpty
-                                ? null
-                                : _dashboard.vehicles.first,
-                            showNotifications: _selectedTab == 0,
-                            onOpenNotification: (item) =>
-                                unawaited(_openNotification(item)),
-                            onOpenAccount: () =>
-                                setState(() => _selectedTab = 2),
+                        slivers: [
+                          CupertinoSliverRefreshControl(
+                            onRefresh: _dashboard.loadDriver,
                           ),
-                        ),
-                        if (!_dashboard.loading &&
-                            _dashboard.message == null &&
-                            _dashboard.completeness != null &&
-                            !_dashboard.completeness!.complete)
                           SliverToBoxAdapter(
-                            child: DriverCompleteProfileBanner(
-                              completeness: _dashboard.completeness!,
-                              onTap: _openCompleteProfile,
-                            ),
-                          ),
-                        if (!_dashboard.loading)
-                          SliverToBoxAdapter(
-                            child: DriverAvailabilityCard(
-                              online: _dashboard.online,
-                              busyWithRide: _dashboard.busyWithRide,
-                              loading:
-                                  _dashboard.loading ||
-                                  _dashboard.refreshing ||
-                                  _dashboard.updatingStatus,
-                              onChanged:
-                                  _dashboard.loading ||
-                                      _dashboard.refreshing ||
-                                      _dashboard.updatingStatus ||
-                                      _dashboard.busyWithRide ||
-                                      _dashboard.profile == null
+                            child: DriverDashboardHeader(
+                              profile: _dashboard.profile,
+                              vehicle: _dashboard.vehicles.isEmpty
                                   ? null
-                                  : _dashboard.toggleOnline,
+                                  : _dashboard.vehicles.first,
+                              showNotifications: _selectedTab == 0,
+                              onOpenNotification: (item) =>
+                                  unawaited(_openNotification(item)),
+                              onOpenAccount: () =>
+                                  setState(() => _selectedTab = 2),
                             ),
                           ),
-                        if (!_dashboard.loading && _dashboard.message == null)
-                          DriverOfferInbox(
-                            actions: _offerActions,
-                            firstOfferCardKey: _firstOfferCardKey,
-                            datasource: widget.datasource,
-                            realtimeService: widget.realtimeService,
-                            driverId: _dashboard.profile?.driverId,
-                            online: _dashboard.online,
-                            onNewOffer: _revealNewOffer,
-                            onInitialLoadSettled: () =>
-                                _dashboard.settleStartup(offers: true),
-                            onAccepted: () {
-                              unawaited(_rideActions.refresh());
-                              unawaited(_dashboard.loadDriver());
-                            },
-                          ),
-                        if (!_dashboard.loading && _dashboard.message != null)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: DriverMessageState(
-                              icon: SwiftIcons.userRound,
-                              title: 'Driver profile unavailable',
-                              message: _dashboard.message!,
-                              actionText: 'Retry',
-                              onAction: _dashboard.loadDriver,
-                            ),
-                          )
-                        else if (!_dashboard.loading)
-                          DriverActiveRideFeed(
-                            actions: _rideActions,
-                            datasource: widget.datasource,
-                            realtimeService: widget.realtimeService,
-                            driverId: _dashboard.profile?.driverId,
-                            busyWithRide: _dashboard.busyWithRide,
-                            vehicle: _dashboard.vehicles.isEmpty
-                                ? null
-                                : _dashboard.vehicles.first,
-                            onAction: _runRideAction,
-                            onCancel: _cancelRide,
-                            onChat: _openChat,
-                            onInitialLoadSettled: () =>
-                                _dashboard.settleStartup(ride: true),
-                            onActiveRideChanged: (rideId) =>
-                                unawaited(_dashboard.activeRideChanged(rideId)),
-                          ),
-                        if (!_dashboard.loading && _dashboard.message == null)
-                          SliverToBoxAdapter(
-                            child: DriverMapSection(
-                              active:
-                                  _dashboard.online || _dashboard.busyWithRide,
-                              showLoadingIndicator: _dashboard.startupComplete,
-                              onInitialLoadSettled: () =>
-                                  _dashboard.settleStartup(map: true),
-                            ),
-                          ),
-                        if (!_dashboard.loading &&
-                            _dashboard.message == null &&
-                            _dashboard.profile?.driverId != null)
-                          SliverToBoxAdapter(
-                            child: DriverLifetimeSummary(
-                              statistics: _dashboard.statistics,
-                              loading: _dashboard.loadingStatistics,
-                              error: _dashboard.statisticsError,
-                              onRetry: () => _dashboard.loadStatistics(
-                                _dashboard.profile!.driverId!,
+                          if (!_dashboard.loading &&
+                              _dashboard.message == null &&
+                              _dashboard.completeness != null &&
+                              !_dashboard.completeness!.complete)
+                            SliverToBoxAdapter(
+                              child: DriverCompleteProfileBanner(
+                                completeness: _dashboard.completeness!,
+                                onTap: _openCompleteProfile,
                               ),
-                              onSeeTrips: () =>
-                                  setState(() => _selectedTab = 1),
                             ),
-                          ),
-                        if (!_dashboard.loading &&
-                            _dashboard.message == null &&
-                            _dashboard.vehicles.isNotEmpty)
+                          if (!_dashboard.loading)
+                            SliverToBoxAdapter(
+                              child: DriverAvailabilityCard(
+                                online: _dashboard.online,
+                                busyWithRide: _dashboard.busyWithRide,
+                                loading:
+                                    _dashboard.loading ||
+                                    _dashboard.refreshing ||
+                                    _dashboard.updatingStatus,
+                                onChanged:
+                                    _dashboard.loading ||
+                                        _dashboard.refreshing ||
+                                        _dashboard.updatingStatus ||
+                                        _dashboard.busyWithRide ||
+                                        _dashboard.profile == null
+                                    ? null
+                                    : _dashboard.toggleOnline,
+                              ),
+                            ),
+                          if (!_dashboard.loading && _dashboard.message == null)
+                            DriverOfferInbox(
+                              actions: _offerActions,
+                              firstOfferCardKey: _firstOfferCardKey,
+                              datasource: widget.datasource,
+                              realtimeService: widget.realtimeService,
+                              driverId: _dashboard.profile?.driverId,
+                              online: _dashboard.online,
+                              onNewOffer: _revealNewOffer,
+                              onInitialLoadSettled: () =>
+                                  _dashboard.settleStartup(offers: true),
+                              onAccepted: () {
+                                unawaited(_rideActions.refresh());
+                                unawaited(_dashboard.loadDriver());
+                              },
+                            ),
+                          if (!_dashboard.loading && _dashboard.message != null)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: DriverMessageState(
+                                icon: SwiftIcons.userRound,
+                                title: 'Driver profile unavailable',
+                                message: _dashboard.message!,
+                                actionText: 'Retry',
+                                onAction: _dashboard.loadDriver,
+                              ),
+                            )
+                          else if (!_dashboard.loading)
+                            DriverActiveRideFeed(
+                              actions: _rideActions,
+                              datasource: widget.datasource,
+                              realtimeService: widget.realtimeService,
+                              driverId: _dashboard.profile?.driverId,
+                              busyWithRide: _dashboard.busyWithRide,
+                              vehicle: _dashboard.vehicles.isEmpty
+                                  ? null
+                                  : _dashboard.vehicles.first,
+                              onAction: _runRideAction,
+                              onCancel: _cancelRide,
+                              onChat: _openChat,
+                              onInitialLoadSettled: () =>
+                                  _dashboard.settleStartup(ride: true),
+                              onActiveRideChanged: (rideId) => unawaited(
+                                _dashboard.activeRideChanged(rideId),
+                              ),
+                            ),
+                          if (!_dashboard.loading && _dashboard.message == null)
+                            SliverToBoxAdapter(
+                              child: DriverMapSection(
+                                active:
+                                    _dashboard.online ||
+                                    _dashboard.busyWithRide,
+                                showLoadingIndicator:
+                                    _dashboard.startupComplete,
+                                onInitialLoadSettled: () =>
+                                    _dashboard.settleStartup(map: true),
+                              ),
+                            ),
+                          if (!_dashboard.loading &&
+                              _dashboard.message == null &&
+                              _dashboard.profile?.driverId != null)
+                            SliverToBoxAdapter(
+                              child: DriverLifetimeSummary(
+                                statistics: _dashboard.statistics,
+                                loading: _dashboard.loadingStatistics,
+                                error: _dashboard.statisticsError,
+                                onRetry: () => _dashboard.loadStatistics(
+                                  _dashboard.profile!.driverId!,
+                                ),
+                                onSeeTrips: () =>
+                                    setState(() => _selectedTab = 1),
+                              ),
+                            ),
+                          if (!_dashboard.loading &&
+                              _dashboard.message == null &&
+                              _dashboard.vehicles.isNotEmpty)
+                            SliverToBoxAdapter(
+                              child: DriverVehicleSummary(
+                                vehicle: _dashboard.vehicles.first,
+                                onTap: () =>
+                                    _openCompleteProfile(initialTab: 1),
+                              ),
+                            ),
                           SliverToBoxAdapter(
-                            child: DriverVehicleSummary(
-                              vehicle: _dashboard.vehicles.first,
-                              onTap: () => _openCompleteProfile(initialTab: 1),
+                            child: SizedBox(
+                              height: MediaQuery.paddingOf(context).bottom + 20,
                             ),
                           ),
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            height: MediaQuery.paddingOf(context).bottom + 20,
-                          ),
-                        ),
-                      ],
-                    ),
-                    (_) => DriverTripsTab(
-                      datasource: widget.datasource,
-                      driverId: _dashboard.profile?.driverId,
-                      statistics: _dashboard.statistics,
-                      onRefreshStatistics: () async {
-                        final driverId = _dashboard.profile?.driverId;
-                        if (driverId != null) {
-                          await _dashboard.loadStatistics(driverId);
-                        }
-                      },
-                    ),
-                    (_) => DriverAccountTab(
-                      datasource: widget.datasource,
-                      profile: _dashboard.profile,
-                      vehicles: _dashboard.vehicles,
-                      completeness: _dashboard.completeness,
-                      showNotifications: _selectedTab == 2,
-                      onRefreshProfile: _dashboard.loadDriver,
-                      onOpenProfile: _openCompleteProfile,
-                      onOpenNotifications: (item) =>
-                          unawaited(_openNotification(item)),
-                    ),
-                  ],
+                        ],
+                      ),
+                      (_) => DriverTripsTab(
+                        datasource: widget.datasource,
+                        driverId: _dashboard.profile?.driverId,
+                        statistics: _dashboard.statistics,
+                        onRefreshStatistics: () async {
+                          final driverId = _dashboard.profile?.driverId;
+                          if (driverId != null) {
+                            await _dashboard.loadStatistics(driverId);
+                          }
+                        },
+                      ),
+                      (_) => DriverAccountTab(
+                        datasource: widget.datasource,
+                        profile: _dashboard.profile,
+                        vehicles: _dashboard.vehicles,
+                        completeness: _dashboard.completeness,
+                        showNotifications: _selectedTab == 2,
+                        onRefreshProfile: _dashboard.loadDriver,
+                        onOpenProfile: _openCompleteProfile,
+                        onOpenNotifications: (item) =>
+                            unawaited(_openNotification(item)),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

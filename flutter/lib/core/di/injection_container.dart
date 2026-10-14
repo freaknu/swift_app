@@ -7,6 +7,7 @@ import 'package:swift_app/features/common/chat/data/datasource/chat_realtime_ser
 import 'package:swift_app/features/common/chat/data/datasource/chat_remote_datasource.dart';
 
 import 'package:swift_app/features/common/authentication/auth/data/datasource/auth_local_datasource.dart';
+import 'package:swift_app/features/common/authentication/auth/data/datasource/auth_home_ready_datasource.dart';
 import 'package:swift_app/features/common/authentication/auth/presentation/bloc/auth_bloc.dart';
 
 import 'package:swift_app/features/common/authentication/login/data/datasource/login_datasource.dart';
@@ -170,6 +171,14 @@ Future<void> initDependencies() async {
 
   sl.registerLazySingleton<OtpDatasource>(
     () => OtpDatasource(dioClient: sl(), endpoints: sl()),
+  );
+
+  sl.registerLazySingleton<AuthHomeReadyDatasource>(
+    () => AuthHomeReadyDatasource(
+      dioClient: sl(),
+      endpoints: sl(),
+      authLocalDatasource: sl(),
+    ),
   );
 
   sl.registerLazySingleton<OtpRepository>(

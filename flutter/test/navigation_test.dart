@@ -173,11 +173,17 @@ void main() {
     tester,
   ) async {
     final location = Completer<bool>();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    var acknowledgements = 0;
     late UserState loadedUser;
     final fixture = await _pumpMainPage(
       tester,
       settle: false,
       initialLocationServices: location.future,
+      onHomeReady: () async {
+        acknowledgements++;
+        return true;
+      },
       setup: (fixture) {
         loadedUser = fixture.user.state;
         fixture.user.update(const UserState(status: UserStatus.loading));
@@ -194,6 +200,7 @@ void main() {
     expect(find.byType(AppLoadingPage), findsOneWidget);
     expect(find.text('Account').hitTestable(), findsNothing);
     expect(find.byType(ThemeToggleButton).hitTestable(), findsNothing);
+    expect(acknowledgements, 0);
 
     fixture.user.update(loadedUser);
     fixture.rideTypes.update(
@@ -205,6 +212,7 @@ void main() {
     );
     await _pumpLaunchFrames(tester);
     expect(find.byType(AppLoadingPage), findsOneWidget);
+    expect(acknowledgements, 0);
     expect(tester.state(find.byType(GoogleMapWidget)), same(mapState));
 
     location.complete(false);
@@ -213,6 +221,7 @@ void main() {
     expect(find.text('Open settings').hitTestable(), findsOneWidget);
     expect(find.text('Account').hitTestable(), findsOneWidget);
     expect(find.byType(ThemeToggleButton).hitTestable(), findsOneWidget);
+    expect(acknowledgements, 1);
     expect(tester.state(find.byType(GoogleMapWidget)), same(mapState));
     expect(tester.takeException(), isNull);
   });
@@ -238,10 +247,16 @@ void main() {
     tester,
   ) async {
     final location = Completer<bool>();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    var acknowledgements = 0;
     final fixture = await _pumpMainPage(
       tester,
       settle: false,
       initialLocationServices: location.future,
+      onHomeReady: () async {
+        acknowledgements++;
+        return true;
+      },
       setup: (fixture) =>
           fixture.user.update(const UserState(status: UserStatus.loading)),
     );
@@ -260,6 +275,7 @@ void main() {
     location.complete(false);
     await tester.pumpAndSettle();
     expect(find.text('Open settings'), findsOneWidget);
+    expect(acknowledgements, 0);
     expect(tester.takeException(), isNull);
   });
 
@@ -410,6 +426,7 @@ Future<_NavigationFixture> _pumpMainPage(
   bool settle = true,
   Future<bool>? initialLocationServices,
   void Function(_NavigationFixture fixture)? setup,
+  Future<bool> Function()? onHomeReady,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -497,7 +514,7 @@ Future<_NavigationFixture> _pumpMainPage(
           ),
           child: child!,
         ),
-        home: const MainPage(),
+        home: MainPage(onHomeReady: onHomeReady),
       ),
     ),
   );

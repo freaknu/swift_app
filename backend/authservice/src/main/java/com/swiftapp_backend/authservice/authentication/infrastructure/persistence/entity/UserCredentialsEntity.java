@@ -33,7 +33,10 @@ public class UserCredentialsEntity {
     @Column(name = "user_id")
     private Long userId;
 
+    @Column(columnDefinition = "TEXT")
     private String accessToken;
+
+    @Column(columnDefinition = "TEXT")
     private String refreshToken;
     private String deviceName;
     private String os;

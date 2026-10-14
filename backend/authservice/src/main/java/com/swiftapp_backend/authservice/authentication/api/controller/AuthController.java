@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(
@@ -75,7 +76,8 @@ public class AuthController {
             description = """
                     Verifies the OTP entered by the user.
 
-                    Returns true if the OTP is valid and not expired.
+                    Returns true if the OTP is valid and not expired. The code remains in Redis
+                    until its original expiry or an authenticated home-ready acknowledgement.
                     Returns an error if the OTP has expired or is invalid.
                     """
     )
@@ -94,23 +96,45 @@ public class AuthController {
             @PathVariable String email,
 
             @Parameter(
-                    description = "4-digit OTP",
-                    example = "1234"
+                    description = "6-digit OTP",
+                    example = "123456"
             )
             @PathVariable int otp) throws Exception {
 
         var res = authService.isCorrectOtp(email, otp);
 
-        return ResponseEntity.ok(
+        HttpStatus status = res ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status).body(
                 ApiResponseFormat.<Boolean>builder()
                         .data(res)
-                        .statusCode(HttpStatus.OK.value())
+                        .statusCode(status.value())
                         .errors(null)
-                        .message("OTP Verified Successfully")
-                        .endpoint("/api/auth/verifyOtp/" + email + "/" + otp)
-                        .success(true)
+                        .message(res ? "OTP Verified Successfully" : "Invalid or expired OTP")
+                        .endpoint("/api/v1/auth/verifyOtp")
+                        .success(res)
                         .build()
         );
+    }
+
+    @Operation(summary = "Acknowledge home screen readiness", description = """
+            Called after the authenticated app has displayed its home screen. Clears only the
+            OTP claim issued to this access session. Safe to retry after expiry or a resend.
+            """)
+    @PostMapping("/home-ready")
+    public ResponseEntity<ApiResponseFormat<Boolean>> homeReady(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody HomeReadyRequestDto data) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw new BadCredentialsException("A valid access token is required");
+        }
+        authService.acknowledgeHomeReady(authorization.substring(7), data.getOtpCompletionToken());
+        return ResponseEntity.ok(ApiResponseFormat.<Boolean>builder()
+                .data(true)
+                .success(true)
+                .statusCode(HttpStatus.OK.value())
+                .message("Home screen acknowledged")
+                .endpoint("/api/v1/auth/home-ready")
+                .build());
     }
 
     @Operation(

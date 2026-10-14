@@ -22,4 +22,5 @@ public class UserAuthResponseDto {
     private String accessToken;
     private String refreshToken;
     private AppUserRoles role;
+    private String otpCompletionToken;
 }

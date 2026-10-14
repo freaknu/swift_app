@@ -2,7 +2,7 @@ name: swift_app
 description: "Swift rider and driver app with live matching and ride offers."
 publish_to: "none"
 
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.11.5

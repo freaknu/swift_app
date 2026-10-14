@@ -64,6 +64,14 @@ class DriverDashboardController extends ChangeNotifier {
   String? get statisticsError => _statisticsError;
   bool get loading => _loading;
   bool get startupComplete => _startupComplete;
+  bool get homeReady =>
+      _profile != null &&
+      _message == null &&
+      !_loading &&
+      _mapSettled &&
+      _initialStatisticsSettled &&
+      _initialOffersSettled &&
+      _initialRideSettled;
   bool get online => _online;
   bool get busyWithRide => _busyWithRide;
   bool get refreshing => _refreshing;

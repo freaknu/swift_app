@@ -226,6 +226,12 @@ class _OtpPageState extends State<OtpPage> with WidgetsBindingObserver {
         if (state is AuthAuthenticated) {
           TextInput.finishAutofillContext();
           Get.offAllNamed('/home');
+        } else if (state is AuthFailure && state.action == AuthAction.login) {
+          // The server may have claimed the code before a response/storage
+          // failure. Let the user recover with a fresh code immediately.
+          _resendTimer?.cancel();
+          _resendAvailableAt = null;
+          _secondsRemaining.value = 0;
         } else if (state is AuthOtpSent) {
           otpController.clear();
 

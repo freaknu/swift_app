@@ -9,6 +9,7 @@ class SignupResponse {
   final String refreshToken;
   final String role;
   final bool active;
+  final String? otpCompletionToken;
 
   SignupResponse({
     required this.userId,
@@ -21,5 +22,6 @@ class SignupResponse {
     required this.refreshToken,
     required this.role,
     required this.active,
+    this.otpCompletionToken,
   });
 }

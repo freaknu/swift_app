@@ -186,6 +186,34 @@ void main() {
     },
   );
 
+  test(
+    'profile recovery cannot acknowledge home before the map settles',
+    () async {
+      final fixture = _Fixture();
+      addTearDown(fixture.dispose);
+      fixture.datasource.profile = Completer();
+      fixture.controller.start();
+      fixture.datasource.profile!.complete(
+        ApiResponseFormat<DriverProfileModel>.failure(
+          statusCode: 503,
+          message: 'Try again',
+          endpoint: 'fixture',
+        ),
+      );
+      await _flush();
+      // The loading cover opens to show retry, while OTP completion still waits.
+      expect(fixture.controller.startupComplete, isTrue);
+      expect(fixture.controller.homeReady, isFalse);
+      fixture.datasource.profile = null;
+      await fixture.controller.loadDriver();
+      await _flush();
+      fixture.controller.settleStartup(offers: true, ride: true);
+      expect(fixture.controller.homeReady, isFalse);
+      fixture.controller.settleStartup(map: true);
+      expect(fixture.controller.homeReady, isTrue);
+    },
+  );
+
   test('disposing during profile load ignores the late response', () async {
     final fixture = _Fixture();
     addTearDown(fixture.dispose);
