@@ -6,7 +6,7 @@
 
 Android 7.0/API 24 or newer. Version 1.0.1, build 2, using the existing Android Debug test signer. Connects to the hosted HTTPS/WSS backend.
 
-[Watch the rider and driver demo](https://github.com/freaknu/swift_app/issues/1) · [Live API docs](https://swift-app.duckdns.org/swagger-ui.html)
+[Watch the rider and driver demo](https://github.com/freaknu/swift_app/issues/1) · [Live API docs](https://swift-app.duckdns.org/swagger-ui.html) · [Architecture and event flows](docs/architecture/README.md)
 
 [![SwiftApp demo](docs/demo/swift-app-demo-poster.png)](https://github.com/freaknu/swift_app/issues/1)
 
